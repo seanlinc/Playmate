@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-static gpio_s RST, DREQ, XDCS, MP3CS;
 typedef char mp3_song_name_t[32];
 typedef uint8_t mp3_data_block_t[512];
 
@@ -43,7 +42,7 @@ typedef uint8_t mp3_data_block_t[512];
 #define VS1053_MODE_SM_EARSPKLO 0x0010
 #define VS1053_MODE_SM_TESTS 0x0020
 #define VS1053_MODE_SM_STREAM 0x0040
-#define VS1053_MODE_SM_SDINEW 0x0800
+#define VS1053_MODE_SM_SDINEW 0x8800 // The default is 0x0800 change bit 15 to 1 for 24Mhz SPI
 #define VS1053_MODE_SM_ADPCM 0x1000
 #define VS1053_MODE_SM_LINE1 0x4000
 #define VS1053_MODE_SM_CLKRANGE 0x8000
@@ -64,4 +63,10 @@ uint16_t mp3__sci_read(uint8_t address);
 
 void mp3__sine_test(uint8_t n, uint16_t time_ms);
 void mp3__set_volume(uint8_t left, uint8_t right);
-void mp3__reset();
+void mp3__software_reset();
+void mp3__hardware_reset();
+void mp3__play();
+void mp3__send_data_block(mp3_data_block_t data);
+
+void mp3__set_xdcs();
+void mp3__reset_xdcs();
