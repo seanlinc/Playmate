@@ -1,100 +1,163 @@
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
 
 #include "board_io.h"
+#include "cli_handlers.h"
 #include "common_macros.h"
+#include "delay.h"
 #include "gpio.h"
-#include "periodic_scheduler.h"
+#include "gpio_lab.h"
 #include "sj2_cli.h"
+#include "ssp2.h"
+#include "cli_handlers.h"
 
-static void create_blinky_tasks(void);
-static void create_uart_task(void);
-static void blink_task(void *params);
-static void uart_task(void *params);
+#include "app_cli.h"
+#include "event_groups.h"
+#include "ff.h"
+#include "mp3_vs1053.h"
+#include "peripherals_init.h"
+#include "queue.h"
+
+static QueueHandle_t Q_song_name;
+static QueueHandle_t Q_song_data;
+
+void mp3_reader(void *p);
+void mp3_player(void *p);
+
+app_cli_status_e cli__mp3_control(app_cli__argument_t argument, sl_string_t user_input_minus_command_name,
+                                  app_cli__print_string_function cli_output) {
+
+  mp3_song_name_t song_name = {0};
+
+  const bool play = sl_string__begins_with_ignore_case(user_input_minus_command_name, "play");
+  const bool stop = sl_string__begins_with_ignore_case(user_input_minus_command_name, "stop");
+  const bool sinetest = sl_string__begins_with_ignore_case(user_input_minus_command_name, "sine");
+
+  sl_string__erase_first_word(user_input_minus_command_name, ' ');
+
+  if (play) {
+    strcpy(song_name, user_input_minus_command_name);
+    printf("Song name: %s\n", song_name);
+    xQueueSend(Q_song_name, &song_name, portMAX_DELAY);
+  } else if (stop) {
+    vTaskSuspend(mp3_player);
+  } else if (sinetest) {
+    mp3__init();
+    mp3__sine_test(8, 1000);
+  }
+
+  return APP_CLI_STATUS__SUCCESS;
+}
 
 int main(void) {
-  create_blinky_tasks();
-  create_uart_task();
 
+  sj2_cli__init();
   puts("Starting RTOS");
+
+  Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
+  Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
+
+  if (!mp3__init()) {
+    printf("Can't find VS1053 decoder\n");
+  } else {
+    printf("VS1053 initialize successfully\n");
+    // mp3__sine_test(3, 100);
+  }
+
+  mp3__software_reset();
+
+  mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
+  printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
+
+  ssp2__initialize(8 * 1000);
+
+  // vTaskDelay(100);
+  // mp3__sine_test(8, 1000);
+  // delay__ms(100);
+
+  xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
+  xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+
   vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
 
   return 0;
 }
 
-static void create_blinky_tasks(void) {
-  /**
-   * Use '#if (1)' if you wish to observe how two tasks can blink LEDs
-   * Use '#if (0)' if you wish to use the 'periodic_scheduler.h' that will spawn 4 periodic tasks, one for each LED
-   */
-#if (1)
-  // These variables should not go out of scope because the 'blink_task' will reference this memory
-  static gpio_s led0, led1;
+void mp3_reader(void *p) {
 
-  led0 = board_io__get_led0();
-  led1 = board_io__get_led1();
+  FIL file;
+  mp3_song_name_t song_name = "test.mp3";
+  mp3_data_block_t mp3_data;
+  UINT br;
 
-  xTaskCreate(blink_task, "led0", configMINIMAL_STACK_SIZE, (void *)&led0, PRIORITY_LOW, NULL);
-  xTaskCreate(blink_task, "led1", configMINIMAL_STACK_SIZE, (void *)&led1, PRIORITY_LOW, NULL);
-#else
-  const bool run_1000hz = true;
-  const size_t stack_size_bytes = 2048 / sizeof(void *); // RTOS stack size is in terms of 32-bits for ARM M4 32-bit CPU
-  periodic_scheduler__initialize(stack_size_bytes, !run_1000hz); // Assuming we do not need the high rate 1000Hz task
-  UNUSED(blink_task);
-#endif
-}
+  while (1) {
 
-static void create_uart_task(void) {
-  // It is advised to either run the uart_task, or the SJ2 command-line (CLI), but not both
-  // Change '#if (0)' to '#if (1)' and vice versa to try it out
-#if (0)
-  // printf() takes more stack space, size this tasks' stack higher
-  xTaskCreate(uart_task, "uart", (512U * 8) / sizeof(void *), NULL, PRIORITY_LOW, NULL);
-#else
-  sj2_cli__init();
-  UNUSED(uart_task); // uart_task is un-used in if we are doing cli init()
-#endif
-}
+    // if (xQueueReceive(Q_song_name, &song_name, portMAX_DELAY)) {
 
-static void blink_task(void *params) {
-  const gpio_s led = *((gpio_s *)params); // Parameter was input while calling xTaskCreate()
+    printf("Got song name from queue: %s\n", song_name);
+    FRESULT result = f_open(&file, song_name, FA_READ);
 
-  // Warning: This task starts with very minimal stack, so do not use printf() API here to avoid stack overflow
-  while (true) {
-    gpio__toggle(led);
-    vTaskDelay(500);
+    if (FR_OK == result) {
+      fprintf(stderr, "Opening song: %s\n", song_name);
+      while (1) {
+        f_read(&file, &mp3_data, sizeof(mp3_data), &br);
+        if (br == 0) {
+          printf("File read error\n");
+          break;
+        }
+        // printf("Sending to queue\n");
+        xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
+        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+        if (uxQueueMessagesWaiting(Q_song_name)) {
+          break;
+        }
+      }
+      // printf("File read error: %d\n", status);
+      printf("End of mp3 file\n");
+
+    } else {
+      fprintf(stderr, "Failed to open file\n");
+      f_close(&file);
+    }
+    // }
   }
 }
 
-// This sends periodic messages over printf() which uses system_calls.c to send them to UART0
-static void uart_task(void *params) {
-  TickType_t previous_tick = 0;
-  TickType_t ticks = 0;
+void mp3_player(void *p) {
 
-  while (true) {
-    // This loop will repeat at precise task delay, even if the logic below takes variable amount of ticks
-    vTaskDelayUntil(&previous_tick, 2000);
+  mp3_data_block_t mp3_data;
+  size_t bytes_send = 0; // Will use it for stop and resume a song
+  int position = 0;
+  while (1) {
+    if (xQueueReceive(Q_song_data, &mp3_data, portMAX_DELAY)) {
+      ssp2__initialize(8 * 1000);
+      bytes_send = 0;
 
-    /* Calls to fprintf(stderr, ...) uses polled UART driver, so this entire output will be fully
-     * sent out before this function returns. See system_calls.c for actual implementation.
-     *
-     * Use this style print for:
-     *  - Interrupts because you cannot use printf() inside an ISR
-     *    This is because regular printf() leads down to xQueueSend() that might block
-     *    but you cannot block inside an ISR hence the system might crash
-     *  - During debugging in case system crashes before all output of printf() is sent
-     */
-    ticks = xTaskGetTickCount();
-    fprintf(stderr, "%u: This is a polled version of printf used for debugging ... finished in", (unsigned)ticks);
-    fprintf(stderr, " %lu ticks\n", (xTaskGetTickCount() - ticks));
+      while (bytes_send < sizeof(mp3_data)) {
 
-    /* This deposits data to an outgoing queue and doesn't block the CPU
-     * Data will be sent later, but this function would return earlier
-     */
-    ticks = xTaskGetTickCount();
-    printf("This is a more efficient printf ... finished in");
-    printf(" %lu ticks\n\n", (xTaskGetTickCount() - ticks));
+        while (!data_request())
+          ;
+        // Enable SDI transfer
+        mp3__reset_xdcs();
+        // fprintf(stderr, "Start playing\n");
+        for (size_t byte = bytes_send; byte < (bytes_send + 32); byte++) {
+          ssp2__exchange_byte(mp3_data[byte]);
+          // printf("%02x", mp3_data[byte]);
+        }
+        // printf("Finish one 32 block\n");
+        // printf("Bytes send: %d\n", bytes_send);
+        bytes_send += 32;
+        // vTaskDelay(5);
+        mp3__set_xdcs();
+      }
+      printf("Position: %d\n", position);
+      position += 512;
+    }
   }
 }
