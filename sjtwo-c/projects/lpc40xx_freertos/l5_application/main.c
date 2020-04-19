@@ -96,7 +96,7 @@ void mp3_reader(void *p) {
 
   while (1) {
 
-    // if (xQueueReceive(Q_song_name, &song_name, portMAX_DELAY)) {
+    if (xQueueReceive(Q_song_name, &song_name, portMAX_DELAY)) {
 
     printf("Got song name from queue: %s\n", song_name);
     FRESULT result = f_open(&file, song_name, FA_READ);
@@ -124,7 +124,7 @@ void mp3_reader(void *p) {
       fprintf(stderr, "Failed to open file\n");
       f_close(&file);
     }
-    // }
+    }
   }
 }
 
