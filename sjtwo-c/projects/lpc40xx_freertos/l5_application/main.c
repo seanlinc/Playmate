@@ -14,7 +14,6 @@
 #include "gpio_lab.h"
 #include "sj2_cli.h"
 #include "ssp2.h"
-#include "cli_handlers.h"
 
 #include "app_cli.h"
 #include "event_groups.h"
@@ -66,7 +65,7 @@ int main(void) {
     printf("Can't find VS1053 decoder\n");
   } else {
     printf("VS1053 initialize successfully\n");
-    // mp3__sine_test(3, 100);
+    mp3__sine_test(3, 100);
   }
 
   mp3__software_reset();

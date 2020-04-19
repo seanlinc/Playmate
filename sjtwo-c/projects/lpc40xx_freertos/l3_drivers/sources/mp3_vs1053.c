@@ -160,7 +160,7 @@ void mp3__sine_test(uint8_t n, uint16_t time_ms) {
     // delay__ms(5);
   }
   mp3__sci_write(VS1053_REG_MODE, 0x0820);
-  // ssp2__initialize(24 * 1000);
+
   gpio__reset(XDCS);
 
   ssp2__exchange_byte(0x53);
