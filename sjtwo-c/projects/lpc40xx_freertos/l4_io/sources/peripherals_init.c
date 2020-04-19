@@ -21,7 +21,7 @@ void peripherals_init(void) {
   // UART initialization is required in order to use <stdio.h> puts, printf() etc; @see system_calls.c
   peripherals_init__uart0_init();
 
-  const uint32_t spi_sd_max_speed_khz = 24 * 1000;
+  const uint32_t spi_sd_max_speed_khz = 8 * 1000;
   ssp2__initialize(spi_sd_max_speed_khz);
   const char *mount_info = peripherals_init__mount_sd_card();
 
