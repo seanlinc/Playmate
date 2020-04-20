@@ -39,6 +39,8 @@ bool oled__init() {
   gpio__set_as_output(DC);
   gpio__set_as_output(RST);
 
+  gpio__set(RST);
+
   ssp2__initialize(8 * 1000);
 
   oled_buffer = (uint8_t *)malloc(OLED_WIDTH * ((OLED_HEIGHT + 7) / 8));
@@ -56,7 +58,7 @@ bool oled__init() {
   oled__send_command(0x80);                       // Ratio 0x80
   oled__send_command(SSD1306_SETMULTIPLEX);       // 0xA8
 
-  oled__send_command(0x3F); // 0xA8
+  oled__send_command(OLED_HEIGHT - 1); // 0x3F
 
   // Second routine
   oled__send_command(SSD1306_SETDISPLAYOFFSET);   // 0xD3
@@ -85,7 +87,7 @@ bool oled__init() {
   oled__send_command(0x40);
   oled__send_command(SSD1306_DISPLAYALLON_RESUME); // 0xA4
   oled__send_command(SSD1306_NORMALDISPLAY);       // 0xA6
-  // oled__write_command(SSD1306_DEACTIVATE_SCROLL);
+  oled__send_command(SSD1306_DEACTIVATE_SCROLL);
   oled__send_command(SSD1306_DISPLAYON); // Turn on OLED
 
   puts("OLED initilize successfully!");
@@ -125,12 +127,12 @@ void oled__display() {
   gpio__reset(DC);
 
   oled__send_command(SSD1306_PAGEADDR);
-  oled__send_command(0);
-  oled__send_command(0xFF);
+  oled__send_command(0);    // Page start address
+  oled__send_command(0xFF); // Page end address
   oled__send_command(SSD1306_COLUMNADDR);
-  oled__send_command(0);
+  oled__send_command(0); // Column start address
 
-  // oled__send_command(OLED_WIDTH - 1); // Column end address
+  oled__send_command(OLED_WIDTH - 1); // Column end address
 
   uint16_t count = OLED_WIDTH * ((OLED_HEIGHT + 7) / 8);
   uint8_t *ptr = oled_buffer;
