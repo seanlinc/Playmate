@@ -98,32 +98,32 @@ void mp3_reader(void *p) {
 
     if (xQueueReceive(Q_song_name, &song_name, portMAX_DELAY)) {
 
-      printf("Got song name from queue: %s\n", song_name);
-      FRESULT result = f_open(&file, song_name, FA_READ);
+    printf("Got song name from queue: %s\n", song_name);
+    FRESULT result = f_open(&file, song_name, FA_READ);
 
-      if (FR_OK == result) {
-        fprintf(stderr, "Opening song: %s\n", song_name);
-        while (1) {
-          f_read(&file, &mp3_data, sizeof(mp3_data), &br);
-          if (br == 0) {
-            printf("File read error\n");
-            break;
-          }
-          // printf("Sending to queue\n");
-          xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
-          // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
-          // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
-          if (uxQueueMessagesWaiting(Q_song_name)) {
-            break;
-          }
+    if (FR_OK == result) {
+      fprintf(stderr, "Opening song: %s\n", song_name);
+      while (1) {
+        f_read(&file, &mp3_data, sizeof(mp3_data), &br);
+        if (br == 0) {
+          printf("File read error\n");
+          break;
         }
-        // printf("File read error: %d\n", status);
-        printf("End of mp3 file\n");
-
-      } else {
-        fprintf(stderr, "Failed to open file\n");
-        f_close(&file);
+        // printf("Sending to queue\n");
+        xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
+        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+        if (uxQueueMessagesWaiting(Q_song_name)) {
+          break;
+        }
       }
+      // printf("File read error: %d\n", status);
+      printf("End of mp3 file\n");
+
+    } else {
+      fprintf(stderr, "Failed to open file\n");
+      f_close(&file);
+    }
     }
   }
 }
