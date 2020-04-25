@@ -42,6 +42,7 @@ static const uint8_t led_gamma_table[256] = {
 
 #define number_of_led 128
 
+
 uint8_t *pixels; // Hold led color value
 uint8_t number_of_bytes;
 uint8_t red_offset;
@@ -50,11 +51,13 @@ uint8_t blue_offset;
 uint8_t white_offset;
 uint8_t brightness;
 
+
 gpio_s pin;
 
 void led__init();
 
 void led__set_rgb_color(uint16_t n, uint8_t red, uint8_t green, uint8_t blue);
+
 
 void led__set_color(uint16_t n, uint32_t color);
 
@@ -68,4 +71,8 @@ void led__show();
 
 void led__clear();
 
+
 bool led__busy();
+
+bool led__busy(); 
+
