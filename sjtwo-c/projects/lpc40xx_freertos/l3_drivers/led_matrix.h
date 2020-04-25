@@ -40,7 +40,7 @@ static const uint8_t led_gamma_table[256] = {
     174, 176, 178, 180, 182, 184, 186, 188, 191, 193, 195, 197, 199, 202, 204, 206, 209, 211, 213, 215, 218, 220,
     223, 225, 227, 230, 232, 235, 237, 240, 242, 245, 247, 250, 252, 255};
 
-#define number_of_led = 128;
+#define number_of_led 128
 
 uint8_t *pixels; // Hold led color value
 uint8_t number_of_bytes;
@@ -48,6 +48,7 @@ uint8_t red_offset;
 uint8_t green_offset;
 uint8_t blue_offset;
 uint8_t white_offset;
+uint8_t brightness;
 
 gpio_s pin;
 
@@ -55,10 +56,16 @@ void led__init();
 
 void led__set_rgb_color(uint16_t n, uint8_t red, uint8_t green, uint8_t blue);
 
+void led__set_color(uint16_t n, uint32_t color);
+
+static uint32_t led__color(uint8_t red, uint8_t green, uint8_t blue) {
+  return ((uint32_t)red << 16 | ((uint32_t)green << 8) | blue);
+}
+
 void led__set_brightness(uint8_t brightness);
 
 void led__show();
 
 void led__clear();
 
-bool led__busy(); 
+bool led__busy();
