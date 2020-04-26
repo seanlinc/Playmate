@@ -1,3 +1,5 @@
+
+
 /*********************************************************
  * This is a driver for SSD1306 OLED display
  * Designed for SJSU SJ2 dev board
@@ -6,8 +8,9 @@
  *
  *********************************************************/
 #include "oled_ssd1306.h"
-
 #include "glcdfont.c"
+#include <glcdfont.c>
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -21,7 +24,6 @@
 #include "clock.h"
 #include "i2c.h"
 #include "ssp2.h"
-
 #define ssd1306_swap(a, b) (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
 #define abs(x) ((x) > 0 ? (x) : -(x))
 #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
@@ -30,6 +32,20 @@
 gpio_s SCL, SDA, DC, RST;
 
 static const uint8_t oled_address = 0x78;
+// For DC pin, low for command and high for data
+// CS and RST is active low
+gpio_s CS, DC, RST;
+
+void oled__constructor(int16_t w, int16_t h) {
+  _width = WIDTH = w;
+  _height = HEIGHT = h;
+
+  rotation = 0;
+  cursor_y = cursor_x = 0;
+  textsize = 1;
+  textcolor = textbgcolor = 0xFFFF;
+  wrap = true;
+}
 
 void oled__constructor(int16_t w, int16_t h) {
   _width = WIDTH = w;
@@ -136,6 +152,7 @@ void oled__send_data(uint8_t data) {
   // ssp2__exchange_byte(data);
   // gpio__set(CS);
   i2c__write_single(I2C__2, oled_address, (uint8_t)0x40, data);
+
 }
 void oled__clear_display() { memset(oled_buffer, 0, (OLED_WIDTH * (OLED_HEIGHT + 7) / 8)); }
 
@@ -605,6 +622,127 @@ void oled__writeString(char *input, uint8_t count) {
   }
 }
 void oled__drawbutton(uint8_t x, uint8_t y, uint8_t color) { oled__drawChar(x, y, '<', color, SSD1306_BLACK, 1); }
+
+void oled__setCursor(int16_t x, int16_t y) {
+  cursor_x = x;
+  cursor_y = y;
+}
+
+void oled__setTextSize(uint8_t s) { textsize = (s > 0) ? s : 1; }
+
+void oled__setTextColor(uint16_t c) {
+  textcolor = c;
+  textbgcolor = c;
+  // for 'transparent' background, we'll set the bg
+  // to the same as fg instead of using a flag
+}
+
+void oled__setTextColor_b(uint16_t c, uint16_t b) {
+  textcolor = c;
+  textbgcolor = b;
+}
+
+void oled__setTextWrap(bool w) { wrap = w; }
+
+void oled__startscroll_right_All() {
+
+  oled__send_command(SSD1306_RIGHT_HORIZONTAL_SCROLL); // send command
+
+  oled__send_command(0x00); // set A[7:0] dummy byte
+  oled__send_command(0x00); // set starting page
+  oled__send_command(0x00); // set time interval
+  oled__send_command(0xFF); // define end page address
+
+  oled__send_command(0x00); // e[7:0 ] dummy byte
+  oled__send_command(0x00); // set starting col
+  oled__send_command(0xFF); // set end cool
+  oled__send_command(SSD1306_ACTIVATE_SCROLL);
+}
+
+void oled__startscroll_right(page_t start_Page, page_t stop_Page, uint8_t star_Col, uint8_t end_Col,
+                             FRAME_FREQUENCY_T frequency) {
+
+  oled__send_command(SSD1306_RIGHT_HORIZONTAL_SCROLL); // send command
+
+  oled__send_command(0x00);       // set A[7:0] dummy byte
+  oled__send_command(start_Page); // set starting page
+  oled__send_command(frequency);  // set time interval
+  oled__send_command(stop_Page);  // define end page address
+
+  oled__send_command(0x00);     // e[7:0 ] dummy byte
+  oled__send_command(star_Col); // set starting col
+  oled__send_command(end_Col);  // set end cool
+  oled__send_command(SSD1306_ACTIVATE_SCROLL);
+}
+
+void oled__startscroll_left_All() {
+
+  oled__send_command(SSD1306_LEFT_HORIZONTAL_SCROLL); // send command
+
+  oled__send_command(0x00); // set A[7:0] dummy byte
+  oled__send_command(0x00); // set starting page
+  oled__send_command(0x00); // set time interval
+  oled__send_command(0xFF); // define end page address
+
+  oled__send_command(0x00); // e[7:0 ] dummy byte
+  oled__send_command(0x00); // set starting col
+  oled__send_command(0xFF); // set end cool
+  oled__send_command(SSD1306_ACTIVATE_SCROLL);
+}
+
+void oled__startscroll_left(page_t start_Page, page_t stop_Page, uint8_t star_Col, uint8_t end_Col,
+                            FRAME_FREQUENCY_T frequency) {
+
+  oled__send_command(SSD1306_LEFT_HORIZONTAL_SCROLL); // send command
+
+  oled__send_command(0x00);       // set A[7:0] dummy byte
+  oled__send_command(start_Page); // set starting page
+  oled__send_command(frequency);  // set time interval
+  oled__send_command(stop_Page);  // define end page address
+
+  oled__send_command(0x00);     // e[7:0 ] dummy byte
+  oled__send_command(star_Col); // set starting col
+  oled__send_command(end_Col);  // set end cool
+  oled__send_command(SSD1306_ACTIVATE_SCROLL);
+}
+
+void oled__V_and_H_scroll_left(page_t start_Page, page_t stop_Page, uint8_t star_Col, uint8_t end_Col, uint8_t V_offset,
+                               FRAME_FREQUENCY_T frequency, bool Hori) {
+
+  oled__send_command(SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL); // send command
+  if (Hori == true)
+    oled__send_command(0x01); // Horizontal scroll
+  else
+    oled__send_command(0x00);
+  oled__send_command(start_Page); // set starting page
+  oled__send_command(frequency);  // set time interval
+  oled__send_command(stop_Page);  // define end page address
+
+  oled__send_command(V_offset); // vertical scrool offset 01h-3fh
+  oled__send_command(star_Col); // set starting col
+  oled__send_command(end_Col);  // set end cool
+  oled__send_command(SSD1306_ACTIVATE_SCROLL);
+}
+
+void oled__V_and_H_scroll_right(page_t start_Page, page_t stop_Page, uint8_t star_Col, uint8_t end_Col,
+                                uint8_t V_offset, FRAME_FREQUENCY_T frequency, bool Hori) {
+
+  oled__send_command(SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL); // send command
+  if (Hori == true)
+    oled__send_command(0x01); // Horizontal scroll
+  else
+    oled__send_command(0x00);
+  oled__send_command(start_Page); // set starting page
+  oled__send_command(frequency);  // set time interval
+  oled__send_command(stop_Page);  // define end page address
+
+  oled__send_command(V_offset); // vertical scrool offset 01h-3fh
+  oled__send_command(star_Col); // set starting col
+  oled__send_command(end_Col);  // set end cool
+  oled__send_command(SSD1306_ACTIVATE_SCROLL);
+}
+void oled_deActive_Scroll() { oled__send_command(SSD1306_DEACTIVATE_SCROLL); }
+
 
 void oled__setCursor(int16_t x, int16_t y) {
   cursor_x = x;
