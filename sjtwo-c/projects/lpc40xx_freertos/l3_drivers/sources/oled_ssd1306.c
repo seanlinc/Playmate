@@ -1,5 +1,3 @@
-
-
 /*********************************************************
  * This is a driver for SSD1306 OLED display
  * Designed for SJSU SJ2 dev board
@@ -9,7 +7,7 @@
  *********************************************************/
 #include "oled_ssd1306.h"
 
-#include <glcdfont.c>
+#include "glcdfont.c"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -20,13 +18,18 @@
 #include "delay.h"
 #include "gpio.h"
 // #include "splash.h"
+#include "clock.h"
+#include "i2c.h"
 #include "ssp2.h"
+
 #define ssd1306_swap(a, b) (((a) ^= (b)), ((b) ^= (a)), ((a) ^= (b))) ///< No-temp-var swap operation
 #define abs(x) ((x) > 0 ? (x) : -(x))
 #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
-// For DC pin, low for command and high for data
-// CS and RST is active low
-gpio_s CS, DC, RST;
+
+// RST is active low
+gpio_s SCL, SDA, DC, RST;
+
+static const uint8_t oled_address = 0x78;
 
 void oled__constructor(int16_t w, int16_t h) {
   _width = WIDTH = w;
@@ -39,23 +42,31 @@ void oled__constructor(int16_t w, int16_t h) {
   wrap = true;
 }
 
+void oled__peripheral_init() {
+  // CS = gpio__construct(2, 1);
+  // SDA = gpio__construct_with_function(0, 10, GPIO__FUNCTION_2);
+  // SCL = gpio__construct_with_function(0, 11, GPIO__FUNCTION_2);
+  // DC = gpio__construct(2, 4);
+  RST = gpio__construct(2, 6);
+
+  const uint32_t i2c_speed_hz = UINT32_C(400) * 1000;
+  i2c__initialize(I2C__2, i2c_speed_hz, clock__get_peripheral_clock_hz());
+
+  // gpio__set_as_output(CS);
+  // gpio__set_as_output(DC);
+  gpio__set_as_output(RST);
+  gpio__set(RST);
+
+  // ssp2__initialize(8 * 1000);
+}
+
 bool oled__init() {
 
   printf("Enter oled init\n");
   // Peripheral initialize
   delay__ms(100); // Wait VCC rise to 3.3V
 
-  CS = gpio__construct(2, 1);
-  DC = gpio__construct(2, 4);
-  RST = gpio__construct(2, 6);
-
-  gpio__set_as_output(CS);
-  gpio__set_as_output(DC);
-  gpio__set_as_output(RST);
-
-  gpio__set(RST);
-
-  ssp2__initialize(8 * 1000);
+  oled__peripheral_init();
 
   oled_buffer = (uint8_t *)malloc(OLED_WIDTH * ((OLED_HEIGHT + 7) / 8));
 
@@ -112,23 +123,25 @@ bool oled__init() {
 }
 
 void oled__send_command(uint8_t command) {
-  gpio__reset(CS);
-  gpio__reset(DC);
-  ssp2__exchange_byte(command);
-  gpio__set(CS);
+  // gpio__reset(CS);
+  // gpio__reset(DC);
+  // ssp2__exchange_byte(command);
+  // gpio__set(CS);
+  i2c__write_single(I2C__2, oled_address, (uint8_t)0x00, command);
 }
 
 void oled__send_data(uint8_t data) {
-  gpio__reset(CS);
-  gpio__set(DC);
-  ssp2__exchange_byte(data);
-  gpio__set(CS);
+  // gpio__reset(CS);
+  // gpio__set(DC);
+  // ssp2__exchange_byte(data);
+  // gpio__set(CS);
+  i2c__write_single(I2C__2, oled_address, (uint8_t)0x40, data);
 }
 void oled__clear_display() { memset(oled_buffer, 0, (OLED_WIDTH * (OLED_HEIGHT + 7) / 8)); }
 
 void oled__display() {
-  gpio__reset(CS);
-  gpio__reset(DC);
+  // gpio__reset(CS);
+  // gpio__reset(DC);
 
   oled__send_command(SSD1306_PAGEADDR);
   oled__send_command(0);    // Page start address

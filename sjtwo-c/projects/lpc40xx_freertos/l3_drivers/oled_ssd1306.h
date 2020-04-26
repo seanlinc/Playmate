@@ -91,6 +91,7 @@ uint8_t textsize;
 uint8_t rotation;
 bool wrap;
 void oled__constructor(int16_t w, int16_t h);
+void oled__peripheral_init();
 bool oled__init();
 void oled__display();
 void oled__clear_display();
