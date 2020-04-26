@@ -71,8 +71,6 @@ void led__show();
 
 void led__clear();
 
-
 bool led__busy();
 
-bool led__busy(); 
 
