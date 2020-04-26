@@ -44,10 +44,10 @@ void oled__constructor(int16_t w, int16_t h) {
 
 void oled__peripheral_init() {
   // CS = gpio__construct(2, 1);
-  // SDA = gpio__construct_with_function(0, 10, GPIO__FUNCTION_2);
-  // SCL = gpio__construct_with_function(0, 11, GPIO__FUNCTION_2);
+  SDA = gpio__construct_with_function(0, 10, GPIO__FUNCTION_2);
+  SCL = gpio__construct_with_function(0, 11, GPIO__FUNCTION_2);
   // DC = gpio__construct(2, 4);
-  RST = gpio__construct(2, 6);
+  RST = gpio__construct(2, 5);
 
   const uint32_t i2c_speed_hz = UINT32_C(400) * 1000;
   i2c__initialize(I2C__2, i2c_speed_hz, clock__get_peripheral_clock_hz());
@@ -593,14 +593,13 @@ void oled__drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color, uint1
   }
 }
 void oled__writeString(char *input, uint8_t count) {
-  int8_t x = 0, y = 0;
   char *ptr = input;
   while (count--) {
-    oled__drawChar(x, y, *ptr++, SSD1306_WHITE, SSD1306_BLACK, 1);
-    x = x + 6;
-    if (x >= cursor_x) {
-      y = y + 8;
-      x = 0;
+    oled__drawChar(page_start_x, page_start_y, *ptr++, SSD1306_WHITE, SSD1306_BLACK, 1);
+    page_start_x = page_start_x + 6;
+    if (page_start_x >= cursor_x) {
+      page_start_y = page_start_y + 8;
+      page_start_x = 0;
     }
   }
 }
@@ -727,3 +726,51 @@ void oled__V_and_H_scroll_right(page_t start_Page, page_t stop_Page, uint8_t sta
 void oled_deActive_Scroll() { oled__send_command(SSD1306_DEACTIVATE_SCROLL); }
 
 void oled__invertDisplay(bool i) { oled__send_command(i ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY); }
+void oled__set_music_pageCursor(uint8_t start_x, uint8_t start_y) {
+  page_start_x = start_x;
+  page_start_y = start_y;
+}
+
+void draw_button(cursor_position_y) { oled__drawbutton(cursor_position_x, cursor_position_y, SSD1306_WHITE); }
+void clear_button(cursor_position_y) { oled__drawbutton(cursor_position_x, cursor_position_y, SSD1306_BLACK); }
+void display_music_page(char array[], uint8_t start_x, uint8_t start_y, uint8_t count) {
+  oled__set_music_pageCursor(start_x, start_y);
+  oled__writeString(array, count);
+}
+
+void button_move_up(uint8_t y) {
+   if (cursor_trace == 0) {
+    draw_button(cursor_trace);
+    oled__display();
+    clear_button(cursor_trace);
+    cursor_trace = 0;
+  } else {
+
+    draw_button(cursor_trace);
+
+    oled__display();
+    clear_button(cursor_trace);
+    cursor_trace = cursor_trace - 8;
+  }
+}
+void button_move_down() {
+  if (cursor_trace == 56) {
+    draw_button(cursor_trace);
+    oled__display();
+    clear_button(cursor_trace);
+    cursor_trace = 56;
+  } else if (cursor_trace == 0) {
+    draw_button(cursor_trace);
+    oled__display();
+    clear_button(cursor_trace);
+    cursor_trace = cursor_trace + 8;
+
+  } else {
+
+    draw_button(cursor_trace);
+
+    oled__display();
+    clear_button(cursor_trace);
+    cursor_trace = cursor_trace + 8;
+  }
+}

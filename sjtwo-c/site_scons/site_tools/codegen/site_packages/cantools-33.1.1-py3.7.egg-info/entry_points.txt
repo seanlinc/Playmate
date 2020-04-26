@@ -1,3 +1,0 @@
-[console_scripts]
-cantools = cantools.__init__:_main
-

@@ -89,6 +89,10 @@ int16_t cursor_x, cursor_y;
 uint16_t textcolor, textbgcolor;
 uint8_t textsize;
 uint8_t rotation;
+int16_t page_start_x, page_start_y;
+uint8_t cursor_trace = 0;
+uint8_t cursor_position_x = 100;
+
 bool wrap;
 void oled__constructor(int16_t w, int16_t h);
 void oled__peripheral_init();
@@ -151,3 +155,11 @@ void oled__V_and_H_scroll_right(page_t start_Page, page_t stop_Page, uint8_t sta
                                 uint8_t V_offset, FRAME_FREQUENCY_T frequency, bool Hori);
 void oled_deActive_Scroll();
 void oled__invertDisplay(bool i);
+void oled__set_music_pageCursor(uint8_t start_x, uint8_t start_y);
+
+void draw_button(cursor_position_y);
+void clear_button(cursor_position_y);
+void display_music_page(char array[], uint8_t start_x, uint8_t start_y, uint8_t count);
+
+void button_move_up();
+void button_move_down();
