@@ -54,8 +54,7 @@ void led__show() {
       __asm("nop; nop; nop; nop; nop; nop; nop; nop; nop;"
             "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
             "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
-            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
-      );
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;");
       // min: 450 typ: 600 max: 5,000
       gpio__reset(led_pin);
       // delay__us(0.6);
