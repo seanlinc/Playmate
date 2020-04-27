@@ -26,8 +26,12 @@
 static QueueHandle_t Q_song_name;
 static QueueHandle_t Q_song_data;
 
+static char song_list[32][128];
+static size_t number_of_songs;
+
 void mp3_reader(void *p);
 void mp3_player(void *p);
+void read_dir();
 
 app_cli_status_e cli__mp3_control(app_cli__argument_t argument, sl_string_t user_input_minus_command_name,
                                   app_cli__print_string_function cli_output) {
@@ -59,50 +63,83 @@ int main(void) {
   sj2_cli__init();
   puts("Starting RTOS");
 
-  led__init();
-  led__clear();
+  // led__init();
+  // led__clear();
 
-  printf("Number of bytes %d\n", number_of_bytes);
-  led__set_brightness(60);
+  // printf("Number of bytes %d\n", number_of_bytes);
+  // led__set_brightness(60);
 
-  while (1) {
-    for (int i = 0; i < number_of_led; i++) {
-      // led__set_brightness(20);
-      led__set_color(i, led__change_color(rand() % 255, rand() % 255, rand() % 255));
-      led__show();
-      delay__ms(50);
-      led__clear();
-    }
+  // while (1) {
+  //   for (int i = 0; i < number_of_led; i++) {
+  //     // led__set_brightness(20);
+  //     led__set_color(i, led__change_color(rand() % 255, rand() % 255, rand() % 255));
+  //     led__show();
+  //     delay__ms(50);
+  //     led__clear();
+  //   }
+  // }
+  // }
+
+  read_dir();
+
+  for (size_t i = 0; i < number_of_songs; i++) {
+    printf("%2d: %s\n", (1 + i), song_list[i]);
   }
-  // }
 
-  // Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
-  // Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
+  Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
+  Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
 
-  // if (!mp3__init()) {
-  //   printf("Can't find VS1053 decoder\n");
-  // } else {
-  //   printf("VS1053 initialize successfully\n");
-  //   mp3__sine_test(3, 100);
-  // }
+  if (!mp3__init()) {
+    printf("Can't find VS1053 decoder\n");
+  } else {
+    printf("VS1053 initialize successfully\n");
+    mp3__sine_test(3, 100);
+  }
 
-  // mp3__software_reset();
+  mp3__software_reset();
 
-  // mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
-  // printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
+  mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
+  printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
 
-  // ssp2__initialize(8 * 1000);
+  ssp2__initialize(8 * 1000);
+  
 
-  // // vTaskDelay(100);
-  // // mp3__sine_test(8, 1000);
-  // // delay__ms(100);
+  // vTaskDelay(100);
+  // mp3__sine_test(8, 1000);
+  // delay__ms(100);
 
-  // xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
-  // xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+  xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
+  xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
 
-  // vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
+  vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
 
   return 0;
+}
+
+void read_dir() {
+  FRESULT result;
+  static FILINFO fno;
+  const char *root_path = "/";
+  DIR dir;
+
+  result = f_opendir(&dir, root_path);
+  if (result == FR_OK) {
+    for (;;) {
+      result = f_readdir(&dir, &fno);
+      if (result != FR_OK || fno.fname[0] == 0) {
+        break; // Break in error or end of dir
+      }
+      if (fno.fattrib & AM_DIR) // It is a directory
+      {
+        // Any directory will be skipped for now
+      } else {
+        // printf("%s/%s\n", root_path, fno.fname);
+        snprintf(song_list[number_of_songs], sizeof(song_list[number_of_songs]), "%.127s", fno.fname);
+        ++number_of_songs;
+      }
+    }
+    f_closedir(&dir);
+  }
 }
 
 void mp3_reader(void *p) {
@@ -149,30 +186,33 @@ void mp3_reader(void *p) {
 void mp3_player(void *p) {
 
   mp3_data_block_t mp3_data;
-  size_t bytes_send = 0; // Will use it for stop and resume a song
+  // size_t bytes_send = 0; // Will use it for stop and resume a song
   int position = 0;
   while (1) {
     if (xQueueReceive(Q_song_data, &mp3_data, portMAX_DELAY)) {
-      ssp2__initialize(8 * 1000);
-      bytes_send = 0;
 
-      while (bytes_send < sizeof(mp3_data)) {
+      mp3__send_data_block(mp3_data);
 
-        while (!data_request())
-          ;
-        // Enable SDI transfer
-        mp3__reset_xdcs();
-        // fprintf(stderr, "Start playing\n");
-        for (size_t byte = bytes_send; byte < (bytes_send + 32); byte++) {
-          ssp2__exchange_byte(mp3_data[byte]);
-          // printf("%02x", mp3_data[byte]);
-        }
-        // printf("Finish one 32 block\n");
-        // printf("Bytes send: %d\n", bytes_send);
-        bytes_send += 32;
-        // vTaskDelay(5);
-        mp3__set_xdcs();
-      }
+      // ssp2__initialize(8 * 1000);
+      // bytes_send = 0;
+
+      // while (bytes_send < sizeof(mp3_data)) {
+
+      //   while (!data_request())
+      //     ;
+      //   // Enable SDI transfer
+      //   mp3__reset_xdcs();
+      //   // fprintf(stderr, "Start playing\n");
+      //   for (size_t byte = bytes_send; byte < (bytes_send + 32); byte++) {
+      //     ssp2__exchange_byte(mp3_data[byte]);
+      //     // printf("%02x", mp3_data[byte]);
+      //   }
+      //   // printf("Finish one 32 block\n");
+      //   // printf("Bytes send: %d\n", bytes_send);
+      //   bytes_send += 32;
+      //   // vTaskDelay(5);
+      //   mp3__set_xdcs();
+      // }
       printf("Position: %d\n", position);
       position += 512;
     }

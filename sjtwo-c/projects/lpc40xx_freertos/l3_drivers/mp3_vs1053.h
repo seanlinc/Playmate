@@ -66,7 +66,7 @@ void mp3__set_volume(uint8_t left, uint8_t right);
 void mp3__software_reset();
 void mp3__hardware_reset();
 void mp3__play();
-void mp3__send_data_block(mp3_data_block_t data);
+void mp3__send_data_block(uint8_t *data);
 
 void mp3__set_xdcs();
 void mp3__reset_xdcs();
