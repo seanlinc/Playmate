@@ -731,46 +731,67 @@ void oled__set_music_pageCursor(uint8_t start_x, uint8_t start_y) {
   page_start_y = start_y;
 }
 
-void draw_button(cursor_position_y) { oled__drawbutton(cursor_position_x, cursor_position_y, SSD1306_WHITE); }
-void clear_button(cursor_position_y) { oled__drawbutton(cursor_position_x, cursor_position_y, SSD1306_BLACK); }
+void draw_button(uint8_t cursor_position_y) {
+  oled__drawbutton(oled_cursor_position_x, cursor_position_y, SSD1306_WHITE);
+}
+void clear_button(uint8_t cursor_position_y) {
+  oled__drawbutton(oled_cursor_position_x, cursor_position_y, SSD1306_BLACK);
+}
 void display_music_page(char array[], uint8_t start_x, uint8_t start_y, uint8_t count) {
   oled__set_music_pageCursor(start_x, start_y);
   oled__writeString(array, count);
 }
 
-void button_move_up(uint8_t y) {
-   if (cursor_trace == 0) {
-    draw_button(cursor_trace);
+void button_move_up() {
+  if (oled_cursor_trace == 0) {
+    draw_button(oled_cursor_trace);
     oled__display();
-    clear_button(cursor_trace);
-    cursor_trace = 0;
+    clear_button(oled_cursor_trace);
+    oled_cursor_trace = 0;
   } else {
 
-    draw_button(cursor_trace);
-
+    draw_button(oled_cursor_trace);
     oled__display();
-    clear_button(cursor_trace);
-    cursor_trace = cursor_trace - 8;
+    clear_button(oled_cursor_trace);
+    oled_cursor_trace = oled_cursor_trace - 8;
   }
 }
 void button_move_down() {
-  if (cursor_trace == 56) {
-    draw_button(cursor_trace);
+  if (oled_cursor_trace == 56) {
+    draw_button(oled_cursor_trace);
     oled__display();
-    clear_button(cursor_trace);
-    cursor_trace = 56;
-  } else if (cursor_trace == 0) {
-    draw_button(cursor_trace);
+    clear_button(oled_cursor_trace);
+    oled_cursor_trace = 56;
+  } else if (oled_cursor_trace == 0) {
+    draw_button(oled_cursor_trace);
     oled__display();
-    clear_button(cursor_trace);
-    cursor_trace = cursor_trace + 8;
+    clear_button(oled_cursor_trace);
+    oled_cursor_trace = oled_cursor_trace + 8;
 
   } else {
-
-    draw_button(cursor_trace);
-
+    draw_button(oled_cursor_trace);
     oled__display();
-    clear_button(cursor_trace);
-    cursor_trace = cursor_trace + 8;
+    clear_button(oled_cursor_trace);
+    oled_cursor_trace = oled_cursor_trace + 8;
+  }
+}
+void oled_set_cursor_trace_and_position(uint8_t trace, uint8_t position) {
+  oled_cursor_trace = trace;
+  oled_cursor_position_x = position;
+}
+
+void oled_play_music_page(char *songname, uint8_t count) {
+  oled__clear_display();
+  oled__writeString(songname, count);
+  oled__startscroll_right_All();
+  oled__display();
+}
+
+void oled__display_String(char *input, uint8_t count) {
+  char *ptr = input;
+  uint8_t x = 0, y = 0;
+  while (count--) {
+    oled__drawChar(x, y, *ptr++, SSD1306_WHITE, SSD1306_BLACK, 1);
+    x = x + 6;
   }
 }
