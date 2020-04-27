@@ -739,7 +739,7 @@ void display_music_page(char array[], uint8_t start_x, uint8_t start_y, uint8_t 
 }
 
 void button_move_up(uint8_t y) {
-   if (cursor_trace == 0) {
+  if (cursor_trace == 0) {
     draw_button(cursor_trace);
     oled__display();
     clear_button(cursor_trace);
