@@ -19,8 +19,11 @@
 #include "event_groups.h"
 #include "ff.h"
 #include "mp3_vs1053.h"
+#include "oled_ssd1306.h"
 #include "peripherals_init.h"
+#include "playmate.h"
 #include "queue.h"
+#include "splash.h"
 
 static QueueHandle_t Q_song_name;
 static QueueHandle_t Q_song_data;
@@ -53,10 +56,66 @@ app_cli_status_e cli__mp3_control(app_cli__argument_t argument, sl_string_t user
   return APP_CLI_STATUS__SUCCESS;
 }
 
+char array[3][12];
+gpio0_s sw1 = {0, 29};
+
+static QueueHandle_t button_handler;
+
+void button_task(void *p) {
+  int button = 0;
+  gpio0_s *switch1 = (gpio0_s *)(p);
+  while (1) {
+    button = gpio0__get_level(*switch1);
+    xQueueSend(button_handler, &button, 0);
+  }
+}
+void recive_task(void *p) {
+  int button = 0;
+  while (1) {
+    if (xQueueReceive(button_handler, &button, 100)) {
+      fprintf(stderr, "button value %u", button);
+      if (button == 1) {
+        button_move_down();
+      }
+    }
+  }
+}
+
 int main(void) {
 
   sj2_cli__init();
   puts("Starting RTOS");
+  // button_handler = xQueueCreate(1, sizeof(int));
+  // xTaskCreate(button_task, "button_task", (512U * 8) / sizeof(void *), &sw1, 1, NULL);
+  // xTaskCreate(recive_task, "recive_task", (512U * 8) / sizeof(void *), NULL, 1, NULL);
+  // oled__init();
+  // oled__clear_display();
+  // oled__drawBitmap((OLED_WIDTH - 122) / 2, (OLED_HEIGHT - 64) / 2, playmate_data, 122, 64, 1);
+  // oled__display();
+  // delay__ms(5000);
+  // oled__clear_display();
+  // gpio0__set_as_output(sw1);
+  // // oled__clear_display();
+  // // delay__ms(1000);
+  // // oled__setCursor(100, 0);
+  // // char array[] = "ABCEDFGNSCSOISOIFJW";
+  // // oled__writeString(array, strlen(array));
+  // // oled__display();
+  // uint8_t count;
+  // uint8_t start_x = 0, start_y = 0;
+  // memset(array, '\0', sizeof(array));
+  // strcpy(array[0], "ABCDEFG");
+  // strcpy(array[1], "1234567");
+  // strcpy(array[2], "!@#$)^&");
+  // oled__setCursor(90, 0);
+  // for (int i = 0; i < 3; i++) {
+  //   count = strlen(array[i]);
+  //   display_music_page(array[i], start_x, start_y, count);
+  //   printf("array %u", i);
+  //   start_x = 0;
+  //   start_y = start_y + 8;
+  // }
+  // oled__display();
 
   Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
   Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
@@ -98,32 +157,32 @@ void mp3_reader(void *p) {
 
     if (xQueueReceive(Q_song_name, &song_name, portMAX_DELAY)) {
 
-    printf("Got song name from queue: %s\n", song_name);
-    FRESULT result = f_open(&file, song_name, FA_READ);
+      printf("Got song name from queue: %s\n", song_name);
+      FRESULT result = f_open(&file, song_name, FA_READ);
 
-    if (FR_OK == result) {
-      fprintf(stderr, "Opening song: %s\n", song_name);
-      while (1) {
-        f_read(&file, &mp3_data, sizeof(mp3_data), &br);
-        if (br == 0) {
-          printf("File read error\n");
-          break;
+      if (FR_OK == result) {
+        fprintf(stderr, "Opening song: %s\n", song_name);
+        while (1) {
+          f_read(&file, &mp3_data, sizeof(mp3_data), &br);
+          if (br == 0) {
+            printf("File read error\n");
+            break;
+          }
+          // printf("Sending to queue\n");
+          xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
+          // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+          // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+          if (uxQueueMessagesWaiting(Q_song_name)) {
+            break;
+          }
         }
-        // printf("Sending to queue\n");
-        xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
-        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
-        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
-        if (uxQueueMessagesWaiting(Q_song_name)) {
-          break;
-        }
+        // printf("File read error: %d\n", status);
+        printf("End of mp3 file\n");
+
+      } else {
+        fprintf(stderr, "Failed to open file\n");
+        f_close(&file);
       }
-      // printf("File read error: %d\n", status);
-      printf("End of mp3 file\n");
-
-    } else {
-      fprintf(stderr, "Failed to open file\n");
-      f_close(&file);
-    }
     }
   }
 }
