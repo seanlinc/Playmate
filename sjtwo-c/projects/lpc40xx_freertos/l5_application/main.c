@@ -63,15 +63,16 @@ int main(void) {
   led__clear();
 
   printf("Number of bytes %d\n", number_of_bytes);
-  led__set_brightness(40);
-  for (int i = 0; i < number_of_led; i++) {
-    // led__set_brightness(20);
+  led__set_brightness(60);
 
-    // while (1) {
-    led__set_color(10, led__change_color(150, 0, 0));
-    led__show();
-    delay__ms(500);
-    led__clear();
+  while (1) {
+    for (int i = 0; i < number_of_led; i++) {
+      // led__set_brightness(20);
+      led__set_color(i, led__change_color(rand() % 255, rand() % 255, rand() % 255));
+      led__show();
+      delay__ms(50);
+      led__clear();
+    }
   }
   // }
 
