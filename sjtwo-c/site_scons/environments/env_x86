@@ -1,0 +1,42 @@
+import os
+import sys
+
+import osops
+
+verbose = GetOption("verbose")
+
+env_x86 = Environment(
+    ENV=os.environ,
+    tools=[
+        "mingw",
+        "unittest",
+    ],
+    CC="gcc",
+    CFLAGS=[
+        "-std=c99",
+    ],
+    ASFLAGS=[],
+    LINKFLAGS=[],
+    CPPPATH=[],
+    CPPDEFINES=[],
+    LIBS=[],
+    LIBPATH=[],
+)
+
+if osops.is_windows():
+    osops.prepend_env_var(env_x86, Dir("#/toolchains/windows/mingw/bin"))
+    osops.prepend_env_var(env_x86, Dir("#/toolchains/windows/ruby26/bin"))
+elif osops.is_linux():
+    pass
+elif osops.is_macos():
+    env_x86["CC"] = "clang"
+else:
+    print("[{}] is an unsupported OS!".format(sys.platform))
+    sys.exit(-1)
+
+if not verbose:
+    env_x86['CCCOMSTR'] = "Compiling $SOURCE"
+    env_x86['LINKCOMSTR'] = "Linking $TARGET"
+
+Export("env_x86")
+Return("env_x86")
