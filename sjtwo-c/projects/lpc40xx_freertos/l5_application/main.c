@@ -18,6 +18,7 @@
 #include "app_cli.h"
 #include "event_groups.h"
 #include "ff.h"
+#include "led_matrix.h"
 #include "mp3_vs1053.h"
 #include "oled_ssd1306.h"
 #include "peripherals_init.h"
@@ -117,31 +118,47 @@ int main(void) {
   // }
   // oled__display();
 
-  Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
-  Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
+  led__init();
+  led__clear();
 
-  if (!mp3__init()) {
-    printf("Can't find VS1053 decoder\n");
-  } else {
-    printf("VS1053 initialize successfully\n");
-    mp3__sine_test(3, 100);
+  printf("Number of bytes %d\n", number_of_bytes);
+  led__set_brightness(40);
+  for (int i = 0; i < number_of_led; i++) {
+    // led__set_brightness(20);
+
+    // while (1) {
+    led__set_color(10, led__change_color(150, 0, 0));
+    led__show();
+    delay__ms(500);
+    led__clear();
   }
+  // }
 
-  mp3__software_reset();
+  // Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
+  // Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
 
-  mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
-  printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
+  // if (!mp3__init()) {
+  //   printf("Can't find VS1053 decoder\n");
+  // } else {
+  //   printf("VS1053 initialize successfully\n");
+  //   mp3__sine_test(3, 100);
+  // }
 
-  ssp2__initialize(8 * 1000);
+  // mp3__software_reset();
 
-  // vTaskDelay(100);
-  // mp3__sine_test(8, 1000);
-  // delay__ms(100);
+  // mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
+  // printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
 
-  xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
-  xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+  // ssp2__initialize(8 * 1000);
 
-  vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
+  // // vTaskDelay(100);
+  // // mp3__sine_test(8, 1000);
+  // // delay__ms(100);
+
+  // xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
+  // xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+
+  // vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
 
   return 0;
 }
