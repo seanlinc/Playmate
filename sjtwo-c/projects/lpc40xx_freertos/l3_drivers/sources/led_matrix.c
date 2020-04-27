@@ -51,24 +51,36 @@ void led__show() {
       // min: 550 typ: 700 max: 5,500
       gpio__set(led_pin);
       // delay__us(0.7);
-      led__delay_ns(450);
+      __asm("nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+      );
       // min: 450 typ: 600 max: 5,000
       gpio__reset(led_pin);
       // delay__us(0.6);
-      led__delay_ns(350);
+      __asm("nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop;");
+      // led__delay_ns(350);
       // puts("HIGH");
     } else {
       // data ZERO high
       // min: 200  typ: 350 max: 500
       gpio__set(led_pin);
       // delay__us(0.35);
-      led__delay_ns(200);
+      // led__delay_ns(200);
       // data low
       // min: 450 typ: 600 max: 5,000
+      __asm("nop; nop; nop; nop; nop; nop; nop;");
+
       gpio__reset(led_pin);
       // delay__us(0.8);
-      led__delay_ns(400);
+      // led__delay_ns(400);
       // puts("LOW");
+      __asm("nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop;");
     }
     if (bitMask >>= 1) {
       // Move on to the next pixel
@@ -203,10 +215,3 @@ void led__update_length() {
 }
 
 void led__clear() { memset(pixels, 0, number_of_bytes); }
-
-void led__delay_ns(uint32_t ns) {
-
-  // for (int i = 0; i < (ns / 50); i++) {
-  __asm__("nop;");
-  // }
-}
