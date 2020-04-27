@@ -12,6 +12,15 @@
 
 #include "gpio.h"
 
+// RGB WS2812B permutations; white and red offsets are always same
+// Offset:         W        R        G        B
+#define NEO_RGB ((0 << 6) | (0 << 4) | (1 << 2) | (2)) ///< Transmit as R,G,B
+#define NEO_RBG ((0 << 6) | (0 << 4) | (2 << 2) | (1)) ///< Transmit as R,B,G
+#define NEO_GRB ((1 << 6) | (1 << 4) | (0 << 2) | (2)) ///< Transmit as G,R,B
+#define NEO_GBR ((2 << 6) | (2 << 4) | (0 << 2) | (1)) ///< Transmit as G,B,R
+#define NEO_BRG ((1 << 6) | (1 << 4) | (2 << 2) | (0)) ///< Transmit as B,R,G
+#define NEO_BGR ((2 << 6) | (2 << 4) | (1 << 2) | (0)) ///< Transmit as B,G,R
+
 static const uint8_t led_sine_table[256] = {
     128, 131, 134, 137, 140, 143, 146, 149, 152, 155, 158, 162, 165, 167, 170, 173, 176, 179, 182, 185, 188, 190,
     193, 196, 198, 201, 203, 206, 208, 211, 213, 215, 218, 220, 222, 224, 226, 228, 230, 232, 234, 235, 237, 238,
@@ -40,32 +49,31 @@ static const uint8_t led_gamma_table[256] = {
     174, 176, 178, 180, 182, 184, 186, 188, 191, 193, 195, 197, 199, 202, 204, 206, 209, 211, 213, 215, 218, 220,
     223, 225, 227, 230, 232, 235, 237, 240, 242, 245, 247, 250, 252, 255};
 
-#define number_of_led 128
-
+static const uint16_t number_of_led = 128;
+uint16_t number_of_bytes;
 
 uint8_t *pixels; // Hold led color value
-uint8_t number_of_bytes;
 uint8_t red_offset;
 uint8_t green_offset;
 uint8_t blue_offset;
 uint8_t white_offset;
-uint8_t brightness;
+uint8_t led_brightness;
 
-
-gpio_s pin;
+gpio_s led_pin;
 
 void led__init();
 
 void led__set_rgb_color(uint16_t n, uint8_t red, uint8_t green, uint8_t blue);
 
-
 void led__set_color(uint16_t n, uint32_t color);
 
-static uint32_t led__color(uint8_t red, uint8_t green, uint8_t blue) {
-  return ((uint32_t)red << 16 | ((uint32_t)green << 8) | blue);
-}
+uint32_t led__change_color(uint8_t red, uint8_t green, uint8_t blue);
 
-void led__set_brightness(uint8_t brightness);
+void led__set_brightness(uint8_t b);
+
+void led__update_length();
+
+void led__update_type();
 
 void led__show();
 
@@ -73,4 +81,4 @@ void led__clear();
 
 bool led__busy();
 
-
+void led__delay_ns(uint32_t ns);

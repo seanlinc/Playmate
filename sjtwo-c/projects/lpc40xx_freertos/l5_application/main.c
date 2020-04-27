@@ -18,6 +18,7 @@
 #include "app_cli.h"
 #include "event_groups.h"
 #include "ff.h"
+#include "led_matrix.h"
 #include "mp3_vs1053.h"
 #include "peripherals_init.h"
 #include "queue.h"
@@ -58,31 +59,47 @@ int main(void) {
   sj2_cli__init();
   puts("Starting RTOS");
 
-  Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
-  Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
+  led__init();
+  led__clear();
 
-  if (!mp3__init()) {
-    printf("Can't find VS1053 decoder\n");
-  } else {
-    printf("VS1053 initialize successfully\n");
-    mp3__sine_test(3, 100);
+  printf("Number of bytes %d\n", number_of_bytes);
+  led__set_brightness(40);
+  for (int i = 0; i < number_of_led; i++) {
+    // led__set_brightness(20);
+
+    // while (1) {
+    led__set_color(10, led__change_color(150, 0, 0));
+    led__show();
+    delay__ms(500);
+    led__clear();
   }
+  // }
 
-  mp3__software_reset();
+  // Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
+  // Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
 
-  mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
-  printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
+  // if (!mp3__init()) {
+  //   printf("Can't find VS1053 decoder\n");
+  // } else {
+  //   printf("VS1053 initialize successfully\n");
+  //   mp3__sine_test(3, 100);
+  // }
 
-  ssp2__initialize(8 * 1000);
+  // mp3__software_reset();
 
-  // vTaskDelay(100);
-  // mp3__sine_test(8, 1000);
-  // delay__ms(100);
+  // mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
+  // printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
 
-  xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
-  xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+  // ssp2__initialize(8 * 1000);
 
-  vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
+  // // vTaskDelay(100);
+  // // mp3__sine_test(8, 1000);
+  // // delay__ms(100);
+
+  // xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
+  // xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+
+  // vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
 
   return 0;
 }
@@ -98,32 +115,32 @@ void mp3_reader(void *p) {
 
     if (xQueueReceive(Q_song_name, &song_name, portMAX_DELAY)) {
 
-    printf("Got song name from queue: %s\n", song_name);
-    FRESULT result = f_open(&file, song_name, FA_READ);
+      printf("Got song name from queue: %s\n", song_name);
+      FRESULT result = f_open(&file, song_name, FA_READ);
 
-    if (FR_OK == result) {
-      fprintf(stderr, "Opening song: %s\n", song_name);
-      while (1) {
-        f_read(&file, &mp3_data, sizeof(mp3_data), &br);
-        if (br == 0) {
-          printf("File read error\n");
-          break;
+      if (FR_OK == result) {
+        fprintf(stderr, "Opening song: %s\n", song_name);
+        while (1) {
+          f_read(&file, &mp3_data, sizeof(mp3_data), &br);
+          if (br == 0) {
+            printf("File read error\n");
+            break;
+          }
+          // printf("Sending to queue\n");
+          xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
+          // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+          // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
+          if (uxQueueMessagesWaiting(Q_song_name)) {
+            break;
+          }
         }
-        // printf("Sending to queue\n");
-        xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
-        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
-        // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
-        if (uxQueueMessagesWaiting(Q_song_name)) {
-          break;
-        }
+        // printf("File read error: %d\n", status);
+        printf("End of mp3 file\n");
+
+      } else {
+        fprintf(stderr, "Failed to open file\n");
+        f_close(&file);
       }
-      // printf("File read error: %d\n", status);
-      printf("End of mp3 file\n");
-
-    } else {
-      fprintf(stderr, "Failed to open file\n");
-      f_close(&file);
-    }
     }
   }
 }
