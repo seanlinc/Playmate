@@ -93,7 +93,7 @@ int main(void) {
     printf("Can't find VS1053 decoder\n");
   } else {
     printf("VS1053 initialize successfully\n");
-    mp3__sine_test(3, 100);
+    // mp3__sine_test(3, 100);
   }
 
   mp3__software_reset();
@@ -102,7 +102,6 @@ int main(void) {
   printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
 
   ssp2__initialize(8 * 1000);
-  
 
   // vTaskDelay(100);
   // mp3__sine_test(8, 1000);
@@ -134,8 +133,11 @@ void read_dir() {
         // Any directory will be skipped for now
       } else {
         // printf("%s/%s\n", root_path, fno.fname);
-        snprintf(song_list[number_of_songs], sizeof(song_list[number_of_songs]), "%.127s", fno.fname);
-        ++number_of_songs;
+        if (mp3__is_mp3_file(fno.fname)) {
+          snprintf(song_list[number_of_songs], sizeof(song_list[number_of_songs]), "%.127s", fno.fname);
+          ++number_of_songs;
+        } else {
+        }
       }
     }
     f_closedir(&dir);
@@ -145,7 +147,7 @@ void read_dir() {
 void mp3_reader(void *p) {
 
   FIL file;
-  mp3_song_name_t song_name = "test.mp3";
+  mp3_song_name_t song_name = "Old Dominion.mp3";
   mp3_data_block_t mp3_data;
   UINT br;
 

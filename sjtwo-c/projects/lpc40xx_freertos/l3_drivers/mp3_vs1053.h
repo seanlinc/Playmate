@@ -70,3 +70,5 @@ void mp3__send_data_block(uint8_t *data);
 
 void mp3__set_xdcs();
 void mp3__reset_xdcs();
+
+bool mp3__is_mp3_file(const char *file_name);
