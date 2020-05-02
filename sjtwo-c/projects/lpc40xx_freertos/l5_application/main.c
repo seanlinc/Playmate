@@ -4,8 +4,10 @@
 #include <string.h>
 
 #include "FreeRTOS.h"
+#include "lpc40xx.h"
 #include "task.h"
 
+#include "adc.h"
 #include "board_io.h"
 #include "cli_handlers.h"
 #include "common_macros.h"
@@ -58,61 +60,131 @@ app_cli_status_e cli__mp3_control(app_cli__argument_t argument, sl_string_t user
   return APP_CLI_STATUS__SUCCESS;
 }
 
+gpio_s left_channel, right_channel, strobe, spectrum_reset;
+
+void spectrum__init();
+void spectrum__read_frequency();
+uint16_t left_frequency[7];
+uint16_t right_frequency[7];
+
 int main(void) {
 
   sj2_cli__init();
   puts("Starting RTOS");
 
-  // led__init();
-  // led__clear();
+  led__init();
+  led__clear();
 
-  // printf("Number of bytes %d\n", number_of_bytes);
-  // led__set_brightness(60);
+  // spectrum__init();
 
   // while (1) {
-  //   for (int i = 0; i < number_of_led; i++) {
-  //     // led__set_brightness(20);
-  //     led__set_color(i, led__change_color(rand() % 255, rand() % 255, rand() % 255));
-  //     led__show();
-  //     delay__ms(50);
-  //     led__clear();
+  //   // spectrum__read_frequency();
+
+  //   // for (int i = 0; i < 7; i++) {
+  //   //   printf("Left Frequency[%d] = %d\n", i + 1, left_frequency[i]);
+  //   //   printf("Right Frequency[%d] = %d\n", i + 1, right_frequency[i]);
+  //   // }
+  //   delay__ms(2000);
+  // }
+
+  // printf("Number of bytes %d\n", number_of_bytes);
+  // led__set_brightness(40);
+
+  while (1) {
+    for (int i = 0; i < number_of_led; i++) {
+      led__set_brightness(20);
+      led__set_pass_through_color(led__change_color(177, 43, 186));
+      led__draw_pixel(rand() % 16, rand() % 8, (uint32_t)0);
+      led__clean_pass_through();
+      led__show();
+      delay__ms(200);
+      led__clear();
+    }
+  }
+
+  // for (int b = 0; b < 3; b++) { //  'b' counts from 0 to 2...
+  //   led__clear();               //   Set all pixels in RAM to 0 (off)
+  //   // 'c' counts up from 'b' to end of strip in increments of 3...
+  //   for (int c = b; c < number_of_led; c += 3) {
+  //     // hue of pixel 'c' is offset by an amount to make one full
+  //     // revolution of the color wheel (range 65536) along the length
+  //     // of the strip (strip.numPixels() steps):
+  //     led__set_color(c, led__change_color(177, 43, 186));
   //   }
+  //   led__show(); // Update strip with new contents
+  //   delay__ms(300);
   // }
   // }
 
-  read_dir();
+  // read_dir();
 
-  for (size_t i = 0; i < number_of_songs; i++) {
-    printf("%2d: %s\n", (1 + i), song_list[i]);
-  }
+  // for (size_t i = 0; i < number_of_songs; i++) {
+  //   printf("%2d: %s\n", (1 + i), song_list[i]);
+  // }
 
-  Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
-  Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
+  // Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
+  // Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
 
-  if (!mp3__init()) {
-    printf("Can't find VS1053 decoder\n");
-  } else {
-    printf("VS1053 initialize successfully\n");
-    // mp3__sine_test(3, 100);
-  }
+  // if (!mp3__init()) {
+  //   printf("Can't find VS1053 decoder\n");
+  // } else {
+  //   printf("VS1053 initialize successfully\n");
+  //   // mp3__sine_test(3, 100);
+  // }
 
-  mp3__software_reset();
+  // mp3__software_reset();
 
-  mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
-  printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
+  // mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
+  // printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
 
-  ssp2__initialize(8 * 1000);
+  // ssp2__initialize(8 * 1000);
 
   // vTaskDelay(100);
   // mp3__sine_test(8, 1000);
   // delay__ms(100);
 
-  xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
-  xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+  // xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
+  // xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
 
   vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
 
   return 0;
+}
+
+void spectrum__init() {
+
+  left_channel = gpio__construct_with_function(1, 30, GPIO__FUNCTION3);  // ADC4
+  right_channel = gpio__construct_with_function(1, 31, GPIO__FUNCTION3); // ADC5
+  // strobe = gpio__construct_with_function(1, 20, GPIO__FUNCTION0);
+  // spectrum_reset = gpio__construct_with_function(1, 28, GPIO__FUNCTION0);
+
+  strobe = gpio__construct_as_output(1, 20);
+  spectrum_reset = gpio__construct_as_output(1, 28);
+
+  LPC_IOCON->P1_31 &= ~(1 << 7);
+  LPC_IOCON->P1_30 &= ~(1 << 7);
+
+  gpio__set_as_output(strobe);
+  gpio__set_as_output(spectrum_reset);
+
+  adc__initialize();
+}
+
+void spectrum__read_frequency() {
+
+  gpio__set(spectrum_reset);
+  delay__us(1);
+  gpio__reset(spectrum_reset);
+  delay__us(100);
+
+  for (int i = 0; i < 7; i++) {
+    gpio__set(strobe);
+    delay__us(50);
+    gpio__reset(strobe);
+    delay__us(50);
+    left_frequency[i] = adc__get_adc_value(ADC__CHANNEL_4);
+    right_frequency[i] = adc__get_adc_value(ADC__CHANNEL_5);
+  }
 }
 
 void read_dir() {
@@ -152,7 +224,6 @@ void mp3_reader(void *p) {
   UINT br;
 
   while (1) {
-
     if (xQueueReceive(Q_song_name, &song_name, portMAX_DELAY)) {
 
       printf("Got song name from queue: %s\n", song_name);
