@@ -213,4 +213,68 @@ void led__update_length() {
   }
 }
 
+void led__draw_pixel(int16_t x, int16_t y, uint32_t color) {
+  if ((x < 0) || (y < 0) || (x > matrix_width) || (y > matrix_height)) {
+    return;
+  }
+
+  int pixelOffset;
+  // LED type NEO GRB
+  uint8_t corner = NEO_GRB & NEO_MATRIX_CORNER;
+  uint16_t minor, major, majorScale;
+
+  minor = x;
+  major = y;
+
+  if (corner & NEO_MATRIX_RIGHT) {
+    minor = matrix_width - 1 - minor;
+  }
+
+  if (corner & NEO_MATRIX_BOTTOM) {
+    major = matrix_height - 1 - major;
+  }
+
+  if ((NEO_GRB & NEO_MATRIX_AXIS) == NEO_MATRIX_ROWS) {
+    majorScale = matrix_width;
+  } else {
+    led__swap_uint16_t(major, minor);
+    majorScale = matrix_height;
+  }
+
+  /* Determine actual major axis of matrix */
+  if ((NEO_GRB & NEO_MATRIX_SEQUENCE) == NEO_MATRIX_PROGRESSIVE) {
+    // All lines in same order
+    pixelOffset = major * majorScale + minor;
+  } else {
+    if (major & 1) {
+      pixelOffset = (major + 1) * majorScale - 1 - minor;
+    } else {
+      pixelOffset = major * majorScale + minor;
+    }
+  }
+
+  led__set_color(pixelOffset, pass_through_flag ? pass_through_color : color);
+}
+
+void led__set_pass_through_color(uint32_t color) {
+  pass_through_color = color;
+  pass_through_flag = true;
+}
+void led__clean_pass_through() { pass_through_flag = false; }
+
+void led__swap_uint16_t(uint16_t a, uint16_t b) {
+  uint16_t temp;
+  temp = a;
+  a = b;
+  b = temp;
+}
+
+void led__fill_screen(uint32_t color) {
+  uint32_t c;
+  c = pass_through_flag ? pass_through_color : color;
+  for (int i = 0; i < number_of_led; i++) {
+    led__set_color(i, c);
+  }
+}
+
 void led__clear() { memset(pixels, 0, number_of_bytes); }
