@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "gpio.h"
@@ -18,8 +19,18 @@
 #define NEO_RBG ((0 << 6) | (0 << 4) | (2 << 2) | (1)) ///< Transmit as R,B,G
 #define NEO_GRB ((1 << 6) | (1 << 4) | (0 << 2) | (2)) ///< Transmit as G,R,B
 #define NEO_GBR ((2 << 6) | (2 << 4) | (0 << 2) | (1)) ///< Transmit as G,B,R
-#define NEO_BRG ((1 << 6) | (1 << 4) | (2 << 2) | (0)) ///< Transmit as B,R,G
-#define NEO_BGR ((2 << 6) | (2 << 4) | (1 << 2) | (0)) ///< Transmit as B,G,R
+
+#define NEO_MATRIX_TOP 0x00         // Pixel 0 is at top of matrix
+#define NEO_MATRIX_BOTTOM 0x01      // Pixel 0 is at bottom of matrix
+#define NEO_MATRIX_LEFT 0x00        // Pixel 0 is at left of matrix
+#define NEO_MATRIX_RIGHT 0x02       // Pixel 0 is at right of matrix
+#define NEO_MATRIX_CORNER 0x03      // Bitmask for pixel 0 matrix corner
+#define NEO_MATRIX_ROWS 0x00        // Matrix is row major (horizontal)
+#define NEO_MATRIX_COLUMNS 0x04     // Matrix is column major (vertical)
+#define NEO_MATRIX_AXIS 0x04        // Bitmask for row/column layout
+#define NEO_MATRIX_PROGRESSIVE 0x00 // Same pixel order across each line
+#define NEO_MATRIX_ZIGZAG 0x08      // Pixel order reverses between lines
+#define NEO_MATRIX_SEQUENCE 0x08    // Bitmask for pixel line order
 
 static const uint8_t led_sine_table[256] = {
     128, 131, 134, 137, 140, 143, 146, 149, 152, 155, 158, 162, 165, 167, 170, 173, 176, 179, 182, 185, 188, 190,
@@ -49,6 +60,8 @@ static const uint8_t led_gamma_table[256] = {
     174, 176, 178, 180, 182, 184, 186, 188, 191, 193, 195, 197, 199, 202, 204, 206, 209, 211, 213, 215, 218, 220,
     223, 225, 227, 230, 232, 235, 237, 240, 242, 245, 247, 250, 252, 255};
 
+static const uint8_t matrix_height = 8;
+static const uint8_t matrix_width = 16;
 static const uint16_t number_of_led = 128;
 uint16_t number_of_bytes;
 
@@ -58,6 +71,10 @@ uint8_t green_offset;
 uint8_t blue_offset;
 uint8_t white_offset;
 uint8_t led_brightness;
+
+/* Variables for LED Matrix */
+uint32_t pass_through_color;
+static bool pass_through_flag = false;
 
 gpio_s led_pin;
 
@@ -81,4 +98,11 @@ void led__clear();
 
 bool led__busy();
 
-void led__delay_ns(uint32_t ns);
+void led__draw_pixel(int16_t x, int16_t y, uint32_t color);
+
+void led__set_pass_through_color(uint32_t color);
+void led__clean_pass_through();
+
+void led__fill_screen(uint32_t color);
+
+void led__swap_uint16_t(uint16_t a, uint16_t b);
