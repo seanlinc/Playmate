@@ -18,6 +18,7 @@
 #include "delay.h"
 #include "gpio.h"
 // #include "splash.h"
+// #include "FONT3x7.h"
 #include "clock.h"
 #include "i2c.h"
 #include "ssp2.h"
@@ -31,14 +32,15 @@ gpio_s SCL, SDA, DC, RST;
 
 static const uint8_t oled_address = 0x78;
 
-void oled__constructor(int16_t w, int16_t h) {
-  _width = WIDTH = w;
-  _height = HEIGHT = h;
+void oled__constructor() {
+  _width = WIDTH = 128;
+  _height = HEIGHT = 64;
 
   rotation = 0;
   cursor_y = cursor_x = 0;
   textsize = 1;
   textcolor = textbgcolor = 0xFFFF;
+  musiclist_count = 0;
   wrap = true;
 }
 
@@ -76,7 +78,8 @@ bool oled__init() {
   uint8_t contrast = 0xCF;
 
   oled__clear_display();
-
+  oled__constructor();
+  oled_set_music_list_count(0);
   // First routine
   oled__send_command(SSD1306_DISPLAYOFF);         // 0xAE
   oled__send_command(SSD1306_SETDISPLAYCLOCKDIV); // 0xD5
@@ -115,6 +118,7 @@ bool oled__init() {
   oled__send_command(SSD1306_DEACTIVATE_SCROLL);
   oled__send_command(SSD1306_DISPLAYON); // Turn on OLED
   oled__fillAll();
+  oled__set_page_Cursor(100, 0);
   delay__ms(2000);
   // oled__clear_display();
   // oled__clear();
@@ -597,15 +601,24 @@ void oled__writeString(char *input, uint8_t count) {
   while (count--) {
     oled__drawChar(page_start_x, page_start_y, *ptr++, SSD1306_WHITE, SSD1306_BLACK, 1);
     page_start_x = page_start_x + 6;
+
     if (page_start_x >= cursor_x) {
-      page_start_y = page_start_y + 8;
-      page_start_x = 0;
+      break;
     }
+  }
+}
+
+void oled__on_play_writeString(char *input, uint8_t count) {
+  char *ptr = input;
+  int x = 2, y = 3;
+  while (count--) {
+    oled__drawChar(x, y, *ptr++, SSD1306_WHITE, SSD1306_BLACK, 1);
+    x = x + 6;
   }
 }
 void oled__drawbutton(uint8_t x, uint8_t y, uint8_t color) { oled__drawChar(x, y, '<', color, SSD1306_BLACK, 1); }
 
-void oled__setCursor(int16_t x, int16_t y) {
+void oled__set_page_Cursor(int16_t x, int16_t y) {
   cursor_x = x;
   cursor_y = y;
 }
@@ -657,14 +670,14 @@ void oled__startscroll_right(page_t start_Page, page_t stop_Page, uint8_t star_C
   oled__send_command(SSD1306_ACTIVATE_SCROLL);
 }
 
-void oled__startscroll_left_All() {
+void oled__startscroll_left_ALL(page_t start, page_t stop) {
 
   oled__send_command(SSD1306_LEFT_HORIZONTAL_SCROLL); // send command
 
-  oled__send_command(0x00); // set A[7:0] dummy byte
-  oled__send_command(0x00); // set starting page
-  oled__send_command(0x00); // set time interval
-  oled__send_command(0xFF); // define end page address
+  oled__send_command(0x00);  // set A[7:0] dummy byte
+  oled__send_command(start); // set starting page
+  oled__send_command(0x00);  // set time interval
+  oled__send_command(stop);  // define end page address
 
   oled__send_command(0x00); // e[7:0 ] dummy byte
   oled__send_command(0x00); // set starting col
@@ -742,56 +755,76 @@ void display_music_page(char array[], uint8_t start_x, uint8_t start_y, uint8_t 
   oled__writeString(array, count);
 }
 
-void button_move_up() {
-  if (oled_cursor_trace == 0) {
-    draw_button(oled_cursor_trace);
-    oled__display();
-    clear_button(oled_cursor_trace);
-    oled_cursor_trace = 0;
-  } else {
+int button_move_up() {
+  clear_button(oled_cursor_trace);
+  if (oled_cursor_trace == 15) {
 
-    draw_button(oled_cursor_trace);
-    oled__display();
-    clear_button(oled_cursor_trace);
-    oled_cursor_trace = oled_cursor_trace - 8;
+    oled_cursor_trace = 15;
+    if (musiclist_count != 0) {
+      musiclist_count -= 1;
+    }
+  } else {
+    oled_cursor_trace = oled_cursor_trace - 10;
+    if (musiclist_count != 0) {
+      musiclist_count -= 1;
+    }
   }
+
+  if (array_trace > 0) {
+    array_trace--;
+    printf("arraytrace  - 1, value: %u ", array_trace);
+  }
+
+  draw_button(oled_cursor_trace);
+  oled__display();
+  return musiclist_count;
 }
-void button_move_down() {
-  if (oled_cursor_trace == 56) {
-    draw_button(oled_cursor_trace);
-    oled__display();
-    clear_button(oled_cursor_trace);
-    oled_cursor_trace = 56;
-  } else if (oled_cursor_trace == 0) {
-    draw_button(oled_cursor_trace);
-    oled__display();
-    clear_button(oled_cursor_trace);
-    oled_cursor_trace = oled_cursor_trace + 8;
+int button_move_down() {
+  clear_button(oled_cursor_trace);
+  if (oled_cursor_trace == 55) {
 
+    oled_cursor_trace = 55;
+    if (musiclist_count != array_size - 1) {
+      musiclist_count += 1;
+    }
+    // musiclist_count += 1;
+
+  } else if (oled_cursor_trace == 15) {
+    oled_cursor_trace = oled_cursor_trace + 10;
   } else {
-    draw_button(oled_cursor_trace);
-    oled__display();
-    clear_button(oled_cursor_trace);
-    oled_cursor_trace = oled_cursor_trace + 8;
+    oled_cursor_trace = oled_cursor_trace + 10;
   }
+  draw_button(oled_cursor_trace);
+  printf("arraysize, value: %u ", array_size);
+  if (array_trace < array_size - 1) {
+    array_trace++;
+    printf("arraytrace  + 1, value: %u ", array_trace);
+  }
+  oled__display();
+  return musiclist_count;
 }
 void oled_set_cursor_trace_and_position(uint8_t trace, uint8_t position) {
   oled_cursor_trace = trace;
   oled_cursor_position_x = position;
 }
 
-void oled_play_music_page(char *songname, uint8_t count) {
-  oled__clear_display();
-  oled__writeString(songname, count);
-  oled__startscroll_right_All();
-  oled__display();
+uint8_t oled_get_cursor() { return oled_cursor_trace; }
+void oled_set_trace() { oled_cursor_trace = 15; }
+
+void oled_music_scroll() {
+  uint8_t startpage;
+  uint8_t endpage;
+  startpage = 0;
+  endpage = 0;
+  oled__startscroll_left(startpage, endpage, 0, 128, Frame_frequency_5);
 }
 
-void oled__display_String(char *input, uint8_t count) {
-  char *ptr = input;
-  uint8_t x = 0, y = 0;
-  while (count--) {
-    oled__drawChar(x, y, *ptr++, SSD1306_WHITE, SSD1306_BLACK, 1);
-    x = x + 6;
-  }
+void oled_set_music_list_count(uint8_t x) { musiclist_count = x; }
+int oled_get_music_list_count() { return musiclist_count; }
+
+void oled_set_arraysize(size_t numberofsongs) {
+  oled_set_arraytrace();
+  array_size = numberofsongs;
 }
+size_t oled_get_arraytrace() { return array_trace; }
+size_t oled_set_arraytrace() { array_trace = 0; }

@@ -190,25 +190,24 @@ void mp3__sine_test(uint8_t n, uint16_t time_ms) {
   printf("Finished sine test\n");
 }
 
-// void mp3__send_data_block(mp3_data_block_t data) {
-//   UINT bytes_send = 0;
+void mp3__send_data_block(uint8_t *data) {
+  size_t bytes_send = 0;
+  ssp2__initialize(8 * 1000);
 
-//   while (bytes_send < 512) {
-//     while (!data_request())
-//       ;
-//     // Enable SDI transfer
-//     mp3__reset_xdcs();
-//     // fprintf(stderr, "Start playing\n");
-//     for (UINT byte = bytes_send; byte < (bytes_send + 32); byte++) {
-//       // mp3_spi_send_32_bytes(mp3_data[byte]);
-//       ssp2__exchange_byte(data[byte]);
-//       printf("%02x", data[byte]);
-//       printf("Finish one 32 block\n");
-//     }
-//     printf("Bytes send: %d\n", bytes_send);
-//     bytes_send += 32;
+  while (bytes_send < 512) {
 
-//     // vTaskDelay(5);
-//     mp3__set_xdcs();
-//   }
-// }
+    while (!data_request())
+      ;
+    // Enable SDI transfer
+    mp3__reset_xdcs();
+
+    for (size_t byte = bytes_send; byte < (bytes_send + 32); byte++) {
+      ssp2__exchange_byte(data[byte]);
+      // printf("%02x", mp3_data[byte]);
+    }
+
+    bytes_send += 32;
+
+    mp3__set_xdcs();
+  }
+}

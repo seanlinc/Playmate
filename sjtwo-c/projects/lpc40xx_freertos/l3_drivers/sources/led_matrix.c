@@ -11,56 +11,90 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "delay.h"
 #include "gpio.h"
-#include "time.h"
 
 void led__init() {
-  pin = gpio__construct_as_output(2, 0);
-  gpio__reset(pin);
+  led_pin = gpio__construct(0, 6);
+  gpio__set_as_output(led_pin);
+  gpio__reset(led_pin);
+  led__update_type();
+  led__update_length();
+
+  puts("Finish LED Matrix Initilization");
 }
 
 void led__show() {
+
+  if (!pixels) {
+    puts("Pixels buffer not set");
+    return;
+  }
+
   uint8_t *ptr, *end, p, bitMask;
   ptr = pixels;
   end = ptr + number_of_bytes;
   p = *ptr++;
   bitMask = 0x80;
 
-  while (led__busy)
-    ;
+  // while (led__busy)
+  //   ;
+
+  // delay__ms(300);
 
   for (;;) {
     if (p & bitMask) {
       // data ONE high
       // min: 550 typ: 700 max: 5,500
-      gpio__set(pin);
-      delay__ns(550);
+      gpio__set(led_pin);
+      // delay__us(0.7);
+      __asm("nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;");
       // min: 450 typ: 600 max: 5,000
-      gpio__reset(pin);
-      delay__ns(450);
+      gpio__reset(led_pin);
+      // delay__us(0.6);
+      __asm("nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop;");
+      // led__delay_ns(350);
+      // puts("HIGH");
     } else {
       // data ZERO high
       // min: 200  typ: 350 max: 500
-      gpio__set(pin);
-      delay__ns(200);
+      gpio__set(led_pin);
+      // delay__us(0.35);
+      // led__delay_ns(200);
       // data low
       // min: 450 typ: 600 max: 5,000
-      gpio__reset(pin);
-      delay__ns(450);
+      __asm("nop; nop; nop; nop; nop; nop; nop;");
+
+      gpio__reset(led_pin);
+      // delay__us(0.8);
+      // led__delay_ns(400);
+      // puts("LOW");
+      __asm("nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop; nop; nop; nop; nop; nop;"
+            "nop; nop; nop; nop;");
     }
     if (bitMask >>= 1) {
       // Move on to the next pixel
-      asm("nop;");
+      __asm__("nop;");
     } else {
       if (ptr >= end)
         break;
       p = *ptr++;
+      // printf("Pixel value: %d\n", p);
       bitMask = 0x80;
     }
+    // printf("Pixel: %p\n", ptr);
+    // printf("Pixel value: %d\n", *ptr)
   }
+  // puts("LED shows");
 }
 
 /*!
@@ -74,10 +108,10 @@ void led__show() {
 
 void led__set_rgb_color(uint16_t n, uint8_t red, uint8_t green, uint8_t blue) {
   if (n < number_of_led) {
-    if (brightness) {
-      red = (red * brightness) >> 8;
-      green = (green * brightness) >> 8;
-      blue = (blue * brightness) >> 8;
+    if (led_brightness) {
+      red = (red * led_brightness) >> 8;
+      green = (green * led_brightness) >> 8;
+      blue = (blue * led_brightness) >> 8;
     }
 
     uint8_t *ptr;
@@ -88,15 +122,49 @@ void led__set_rgb_color(uint16_t n, uint8_t red, uint8_t green, uint8_t blue) {
       ptr[white_offset] = 0;
     }
     ptr[red_offset] = red;
+
     ptr[green_offset] = green;
+
     ptr[blue_offset] = blue;
   }
 }
 
 void led__set_color(uint16_t n, uint32_t color) {
+  uint8_t red, green, blue;
+
+  printf("Color: %d\n", color);
+
   if (n < number_of_led) {
     uint8_t *ptr;
+    red = (uint8_t)(color >> 16);
+    green = (uint8_t)(color >> 8);
+    blue = (uint8_t)color;
+
+    if (led_brightness) {
+      red = (red * led_brightness) >> 8;
+      green = (green * led_brightness) >> 8;
+      blue = (blue * led_brightness) >> 8;
+    }
+
+    if (white_offset == red_offset) {
+      ptr = &pixels[n * 3];
+    } else {
+      ptr = &pixels[n * 4];
+      uint8_t white = (uint8_t)(color >> 24);
+      ptr[white_offset] = led_brightness ? ((white * led_brightness) >> 8) : white;
+    }
+    ptr[red_offset] = red;
+    printf("Ptr: %p\n", ptr);
+    // printf("Pixel Red: %d\n", ptr[red_offset]);
+    ptr[green_offset] = green;
+    // printf("Pixel green: %d\n", ptr[green_offset]);
+    ptr[blue_offset] = blue;
+    // printf("Pixel blue: %d\n", ptr[blue_offset]);
   }
+}
+
+uint32_t led__change_color(uint8_t red, uint8_t green, uint8_t blue) {
+  return ((uint32_t)red << 16 | ((uint32_t)green << 8) | blue);
 }
 
 void led__set_brightness(uint8_t brightness) {
@@ -117,8 +185,32 @@ void led__set_brightness(uint8_t brightness) {
       c = *ptr;
       *ptr++ = (c * scale) >> 8;
     }
-    brightness = new_brightness;
+    led_brightness = new_brightness;
   }
 }
 
-void clear() { memset(pixels, 0, number_of_bytes); }
+void led__update_type() {
+  bool oldThreeBytesPerPixel = (white_offset == red_offset); // false if RGBW
+  white_offset = (NEO_GRB >> 6) & 0b11;                      // See notes in header file
+  red_offset = (NEO_GRB >> 4) & 0b11;                        // regarding R/G/B/W offsets
+  green_offset = (NEO_GRB >> 2) & 0b11;
+  blue_offset = NEO_GRB & 0b11;
+
+  if (pixels) {
+    bool newThreeBytesPerPixel = (white_offset == red_offset);
+    if (newThreeBytesPerPixel != oldThreeBytesPerPixel)
+      led__update_length(number_of_led);
+  }
+}
+
+void led__update_length() {
+  free(pixels);
+  number_of_bytes = number_of_led * ((white_offset == red_offset) ? 3 : 4);
+  if ((pixels = (uint8_t *)malloc(number_of_bytes))) {
+    memset(pixels, 0, number_of_bytes);
+  } else {
+    number_of_bytes = 0;
+  }
+}
+
+void led__clear() { memset(pixels, 0, number_of_bytes); }

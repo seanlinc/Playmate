@@ -162,5 +162,5 @@ void draw_button(uint8_t cursor_position_y);
 void clear_button(uint8_t cursor_position_y);
 void display_music_page(char array[], uint8_t start_x, uint8_t start_y, uint8_t count);
 
-void button_move_up();
+void button_move_up(uint8_t y);
 void button_move_down();
