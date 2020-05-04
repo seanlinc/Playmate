@@ -22,9 +22,9 @@
 #include "ff.h"
 #include "led_matrix.h"
 #include "mp3_vs1053.h"
+#include "oled_ssd1306.h"
 #include "peripherals_init.h"
 #include "queue.h"
-
 static QueueHandle_t Q_song_name;
 static QueueHandle_t Q_song_data;
 
@@ -60,6 +60,96 @@ app_cli_status_e cli__mp3_control(app_cli__argument_t argument, sl_string_t user
   return APP_CLI_STATUS__SUCCESS;
 }
 
+char array[3][12];
+uint8_t song_index = 0;
+gpio0_s sw1 = {0, 29};
+gpio0_s sw2 = {0, 30};
+gpio0_s sw3 = {1, 15};
+
+static QueueHandle_t button_handler;
+
+void button_up_task(void *p) {
+  int button = 1;
+  gpio0_s *switch1 = (gpio0_s *)(p);
+  while (1) {
+    if (gpio0__get_level(*switch1)) {
+      xQueueSend(button_handler, &button, 0);
+    }
+  }
+}
+void button_down_task(void *p) {
+  int button = 2;
+  gpio0_s *switch2 = (gpio0_s *)(p);
+  while (1) {
+    if (gpio0__get_level(*switch2)) {
+      xQueueSend(button_handler, &button, 0);
+    }
+  }
+}
+void button_play_task(void *p) {
+  int button = 3;
+  gpio0_s *switch3 = (gpio0_s *)(p);
+  while (1) {
+    if (gpio0__get_level(*switch3)) {
+      xQueueSend(button_handler, &button, 0);
+    }
+  }
+}
+void recive_task(void *p) {
+  int button;
+  while (1) {
+    if (xQueueReceive(button_handler, &button, 100)) {
+      printf("\n");
+      if (button == 1) {
+        fprintf(stderr, "button 1\n");
+        button_move_down();
+        display_music_name(song_list, number_of_songs);
+        oled__display();
+      } else if (button == 2) {
+        fprintf(stderr, "button 2\n");
+        button_move_up();
+        display_music_name(song_list, number_of_songs);
+        oled__display();
+      } else if (button == 3) {
+        fprintf(stderr, "button 3\n");
+        song_index = oled_get_cursor();
+        // uint8_t count = (song_index - 15) / 10;
+        size_t count1 = oled_get_arraytrace();
+        printf("count: %u", count1);
+        on_music_name(song_list[count1]);
+        printf("play songs\n");
+        xQueueSend(Q_song_name, &song_list[count1], portMAX_DELAY);
+      }
+    }
+  }
+}
+void display_music_name(char *songlist, uint8_t number) {
+  uint8_t count;
+  uint8_t start_x = 2, start_y = 15;
+  int music_count = oled_get_music_list_count();
+  // int music_count = oled_get_arraytrace();
+  printf("musiccount %u \n", music_count);
+  if (music_count + 5 > number) {
+    music_count = number - 5;
+  }
+  for (int i = music_count; i < music_count + 5; i++) {
+    count = strlen(song_list[i]);
+    display_music_page(song_list[i], start_x, start_y, count);
+    printf("array %u ", i);
+    start_y = start_y + 10;
+  }
+}
+void on_music_name(char songlist[]) {
+  oled__clear_display;
+  uint8_t start_x = 0, start_y = 2;
+  uint8_t count = strlen(songlist);
+  oled__on_play_writeString(songlist, count);
+  oled__display();
+}
+void draw_menu() {
+  oled__drawFastVLine(0, 14, 51, SSD1306_WHITE);
+  oled__drawFastHLine(0, 12, 128, SSD1306_WHITE);
+}
 gpio_s left_channel, right_channel, strobe, spectrum_reset;
 
 void spectrum__init();
@@ -71,6 +161,47 @@ int main(void) {
 
   sj2_cli__init();
   puts("Starting RTOS");
+  printf("arraysize, value: %u ", number_of_songs);
+
+  if (!mp3__init()) {
+    printf("Can't find VS1053 decoder\n");
+  } else {
+    printf("VS1053 initialize successfully\n");
+    mp3__sine_test(3, 100);
+  }
+  mp3__software_reset();
+
+  mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
+  printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
+
+  ssp2__initialize(8 * 1000);
+  oled_set_trace();
+  oled__init();
+  oled__clear_display();
+  // oled__drawBitmap((OLED_WIDTH - playmate_width) / 2, (OLED_HEIGHT - playmate_height) / 2, playmate1_data,
+  //                  playmate_width, playmate_height, 1);
+  delay__ms(1000);
+  oled__display();
+
+  read_dir();
+  for (size_t i = 0; i < number_of_songs; i++) {
+    printf("%2d: %s\n", (1 + i), song_list[i]);
+  }
+  display_music_name(song_list, number_of_songs);
+  draw_menu();
+  // oled__invertDisplay(1);
+  oled__display();
+  oled_set_arraysize(number_of_songs);
+  button_handler = xQueueCreate(1, sizeof(int));
+  Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
+  Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
+  oled_set_cursor_trace_and_position(15, 115);
+  xTaskCreate(button_up_task, "button1_task", (512U * 8) / sizeof(void *), &sw1, 1, NULL);
+  xTaskCreate(button_down_task, "button1_task", (512U * 8) / sizeof(void *), &sw2, 1, NULL);
+  xTaskCreate(button_play_task, "button1_task", (512U * 8) / sizeof(void *), &sw3, 1, NULL);
+  xTaskCreate(recive_task, "recive1_task", (512U * 8) / sizeof(void *), NULL, 3, NULL);
+  xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
+  xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
 
   led__init();
   led__clear();
@@ -116,6 +247,9 @@ int main(void) {
   // }
   // }
 
+  // // vTaskDelay(100);
+  // // mp3__sine_test(8, 1000);
+  // // delay__ms(100);
   // read_dir();
 
   // for (size_t i = 0; i < number_of_songs; i++) {
