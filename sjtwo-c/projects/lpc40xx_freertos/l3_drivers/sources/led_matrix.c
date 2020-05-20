@@ -132,7 +132,7 @@ void led__set_rgb_color(uint16_t n, uint8_t red, uint8_t green, uint8_t blue) {
 void led__set_color(uint16_t n, uint32_t color) {
   uint8_t red, green, blue;
 
-  printf("Color: %d\n", color);
+  // printf("Color: %d\n", color);
 
   if (n < number_of_led) {
     uint8_t *ptr;
@@ -154,7 +154,7 @@ void led__set_color(uint16_t n, uint32_t color) {
       ptr[white_offset] = led_brightness ? ((white * led_brightness) >> 8) : white;
     }
     ptr[red_offset] = red;
-    printf("Ptr: %p\n", ptr);
+    // printf("Ptr: %p\n", ptr);
     // printf("Pixel Red: %d\n", ptr[red_offset]);
     ptr[green_offset] = green;
     // printf("Pixel green: %d\n", ptr[green_offset]);
