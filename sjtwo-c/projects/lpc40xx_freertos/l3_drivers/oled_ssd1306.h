@@ -15,6 +15,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Define commands
 /// fit into the SSD1306_ naming scheme
@@ -82,27 +84,32 @@ typedef enum {
   page7,
 
 } page_t;
-uint8_t *oled_buffer;    // Display buffer
-int16_t WIDTH, HEIGHT;   // this is the 'raw' display w/h - never changes
-int16_t _width, _height; // dependent on rotation
-int16_t cursor_x, cursor_y;
+uint8_t *oled_buffer;       // Display buffer
+int16_t WIDTH, HEIGHT;      // this is the 'raw' display w/h - never changes
+int16_t _width, _height;    // dependent on rotation
+int16_t cursor_x, cursor_y; //
+int16_t cursor_page_x, cursor_page_y;
 uint16_t textcolor, textbgcolor;
 uint8_t textsize;
 uint8_t rotation;
 int16_t page_start_x, page_start_y;
 uint8_t oled_cursor_trace;
+uint8_t oled_setting_trace;
 uint8_t oled_cursor_position_x;
+uint8_t musiclist_count;
+size_t array_trace;
+size_t array_size;
+static char setting_menu[3][128];
 
 bool wrap;
 void oled_set_cursor_trace_and_position(uint8_t trace, uint8_t position);
-void oled__constructor(int16_t w, int16_t h);
+void oled__constructor();
 void oled__peripheral_init();
 bool oled__init();
 void oled__display();
 void oled__clear_display();
 void oled__send_command(uint8_t command);
 void oled__drawPixel(int16_t x, int16_t y, uint16_t color);
-void oled__draw_line();
 void oled__fill(uint8_t fill_data);
 void oled__clear();
 void oled__fillAll();
@@ -140,7 +147,8 @@ void oled__drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color, uint1
 void oled__setTextColor_b(uint16_t c, uint16_t b);
 void oled__setTextColor(uint16_t c);
 void oled__setTextSize(uint8_t s);
-void oled__setCursor(int16_t x, int16_t y);
+void oled__set_page_Cursor(int16_t x, int16_t y);
+
 void oled__setTextWrap(bool w);
 void oled__writeString(char *input, uint8_t count);
 // scroll
@@ -162,5 +170,25 @@ void draw_button(uint8_t cursor_position_y);
 void clear_button(uint8_t cursor_position_y);
 void display_music_page(char array[], uint8_t start_x, uint8_t start_y, uint8_t count);
 
-void button_move_up(uint8_t y);
-void button_move_down();
+int button_move_up();
+int button_move_down();
+uint8_t oled_get_cursor();
+void oled_set_trace();
+void oled_music_scroll();
+void oled_set_music_list_count(uint8_t x);
+int oled_get_music_list_count();
+
+void oled__on_play_name(char *input, uint8_t count, uint8_t x, uint8_t y);
+void oled__on_play_writeString(char *input, uint8_t count, uint8_t color);
+void oled_set_arraysize(size_t numberofsongs);
+size_t oled_get_arraytrace();
+size_t oled_set_arraytrace();
+
+void draw_menu();
+
+void setting();
+
+void up_setting();
+void down_setting();
+uint8_t get_setting_trace();
+void set_setting_trace();
