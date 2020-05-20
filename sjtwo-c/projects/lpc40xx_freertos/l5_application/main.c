@@ -273,7 +273,7 @@ void on_music_name(char songlist[]) {
   oled__clear_display;
   uint8_t start_x = 0, start_y = 2;
   uint8_t count = strlen(songlist);
-  oled__on_play_writeString(songlist, count);
+  oled__on_play_writeString(songlist, count, SSD1306_WHITE);
   oled__display();
 }
 
@@ -281,11 +281,6 @@ void on_music_name_clear(char songlist[]) {
   uint8_t start_x = 0, start_y = 2;
   uint8_t count = strlen(songlist);
   oled__on_play_writeString(songlist, count, SSD1306_BLACK);
-}
-
-void draw_menu() {
-  oled__drawFastVLine(0, 14, 51, SSD1306_WHITE);
-  oled__drawFastHLine(0, 12, 128, SSD1306_WHITE);
 }
 
 #endif
@@ -538,7 +533,6 @@ void mp3_reader(void *p) {
 }
 
 void mp3_player(void *p) {
-
   mp3_data_block_t mp3_data;
   // size_t bytes_send = 0; // Will use it for stop and resume a song
   int position = 0;
