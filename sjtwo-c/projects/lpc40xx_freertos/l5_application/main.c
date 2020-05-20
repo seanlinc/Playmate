@@ -22,7 +22,7 @@
 #include "ff.h"
 #include "led_matrix.h"
 #include "mp3_vs1053.h"
-#include "oled_ssd1306.h"
+// #include "oled_ssd1306.h"
 #include "peripherals_init.h"
 #include "queue.h"
 static QueueHandle_t Q_song_name;
@@ -59,6 +59,8 @@ app_cli_status_e cli__mp3_control(app_cli__argument_t argument, sl_string_t user
 
   return APP_CLI_STATUS__SUCCESS;
 }
+
+#if 1 
 
 char array[3][12];
 uint8_t song_index = 0;
@@ -150,6 +152,9 @@ void draw_menu() {
   oled__drawFastVLine(0, 14, 51, SSD1306_WHITE);
   oled__drawFastHLine(0, 12, 128, SSD1306_WHITE);
 }
+
+#endif
+
 gpio_s left_channel, right_channel, strobe, spectrum_reset;
 
 void spectrum__init();
@@ -162,6 +167,8 @@ int main(void) {
   sj2_cli__init();
   puts("Starting RTOS");
   printf("arraysize, value: %u ", number_of_songs);
+
+#if 1
 
   if (!mp3__init()) {
     printf("Can't find VS1053 decoder\n");
@@ -203,82 +210,102 @@ int main(void) {
   xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
   xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
 
+#endif
+
   led__init();
   led__clear();
 
-  // spectrum__init();
-
-  // while (1) {
-  //   // spectrum__read_frequency();
-
-  //   // for (int i = 0; i < 7; i++) {
-  //   //   printf("Left Frequency[%d] = %d\n", i + 1, left_frequency[i]);
-  //   //   printf("Right Frequency[%d] = %d\n", i + 1, right_frequency[i]);
-  //   // }
-  //   delay__ms(2000);
-  // }
-
-  // printf("Number of bytes %d\n", number_of_bytes);
-  // led__set_brightness(40);
+  spectrum__init();
 
   while (1) {
-    for (int i = 0; i < number_of_led; i++) {
-      led__set_brightness(20);
-      led__set_pass_through_color(led__change_color(177, 43, 186));
-      led__draw_pixel(rand() % 16, rand() % 8, (uint32_t)0);
-      led__clean_pass_through();
+    spectrum__read_frequency();
+
+    for (int i = 0; i < 7; i++) {
+      printf("Left Frequency[%d] = %d\n", i + 1, left_frequency[i]);
+      printf("Right Frequency[%d] = %d\n", i + 1, right_frequency[i]);
+    }
+    // delay__ms(2000);
+
+    // printf("Number of bytes %d\n", number_of_bytes);
+    led__set_brightness(60);
+    led__fill_screen(0);
+
+    for (int row = 0; row < 7; row++) {
+
+      int left_freq = left_frequency[row] / 200;
+      if (left_frequency > 8) {
+        left_frequency == 8;
+      }
+      int right_freq = right_frequency[row] / 200;
+      if (right_frequency > 8) {
+        right_frequency == 8;
+      }
+
+      printf("Ledf freq %d\n", left_freq);
+      printf("Right freq %d\n", right_freq);
+
+      for (int column = 0; column < left_freq; column++) {
+        led__set_pass_through_color(led__change_color(255, 211, 0));
+        led__draw_pixel(column, row, (uint32_t)0);
+        led__clean_pass_through();
+      }
+
+      // for (int column = 8; column < right_freq + 8; column++) {
+      //   led__set_pass_through_color(led__change_color(255, 211, 0));
+      //   led__draw_pixel(column, row, (uint32_t)0);
+      //   led__clean_pass_through();
+      // }
+
       led__show();
-      delay__ms(200);
-      led__clear();
     }
   }
 
-  // for (int b = 0; b < 3; b++) { //  'b' counts from 0 to 2...
-  //   led__clear();               //   Set all pixels in RAM to 0 (off)
-  //   // 'c' counts up from 'b' to end of strip in increments of 3...
-  //   for (int c = b; c < number_of_led; c += 3) {
-  //     // hue of pixel 'c' is offset by an amount to make one full
-  //     // revolution of the color wheel (range 65536) along the length
-  //     // of the strip (strip.numPixels() steps):
-  //     led__set_color(c, led__change_color(177, 43, 186));
-  //   }
-  //   led__show(); // Update strip with new contents
-  //   delay__ms(300);
-  // }
-  // }
-
-  // // vTaskDelay(100);
-  // // mp3__sine_test(8, 1000);
-  // // delay__ms(100);
-  // read_dir();
-
-  // for (size_t i = 0; i < number_of_songs; i++) {
-  //   printf("%2d: %s\n", (1 + i), song_list[i]);
-  // }
-
-  // Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
-  // Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
-
-  // if (!mp3__init()) {
-  //   printf("Can't find VS1053 decoder\n");
-  // } else {
-  //   printf("VS1053 initialize successfully\n");
-  //   // mp3__sine_test(3, 100);
-  // }
-
-  // mp3__software_reset();
-
-  // mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
-  // printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
-
-  // ssp2__initialize(8 * 1000);
+  for (int b = 0; b < 3; b++) { //  'b' counts from 0 to 2...
+    led__clear();               //   Set all pixels in RAM to 0 (off)
+    // 'c' counts up from 'b' to end of strip in increments of 3...
+    for (int c = b; c < number_of_led; c += 3) {
+      // hue of pixel 'c' is offset by an amount to make one full
+      // revolution of the color wheel (range 65536) along the length
+      // of the strip (strip.numPixels() steps):
+      led__set_color(c, led__change_color(177, 43, 186));
+    }
+    led__show(); // Update strip with new contents
+    delay__ms(300);
+  }
+  }
 
   // vTaskDelay(100);
   // mp3__sine_test(8, 1000);
   // delay__ms(100);
+  read_dir();
 
-  // xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
-  // xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
+  for (size_t i = 0; i < number_of_songs; i++) {
+    printf("%2d: %s\n", (1 + i), song_list[i]);
+  }
+
+  Q_song_name = xQueueCreate(1, sizeof(mp3_song_name_t));
+  Q_song_data = xQueueCreate(1, sizeof(mp3_data_block_t));
+
+  if (!mp3__init()) {
+    printf("Can't find VS1053 decoder\n");
+  } else {
+    printf("VS1053 initialize successfully\n");
+    // mp3__sine_test(3, 100);
+  }
+
+  mp3__software_reset();
+
+  mp3__sci_write(VS1053_REG_MODE, VS1053_MODE_SM_SDINEW);
+  printf("CLOCKF: 0x%04x\n", mp3__sci_read(VS1053_REG_CLOCKF));
+
+  ssp2__initialize(8 * 1000);
+
+  vTaskDelay(100);
+  mp3__sine_test(8, 1000);
+  delay__ms(100);
+
+  xTaskCreate(mp3_reader, "Mp3 Reader", 2000 + sizeof(mp3_data_block_t), NULL, 1, NULL);
+  xTaskCreate(mp3_player, "Mp3 Player", 2000 + sizeof(mp3_data_block_t), NULL, 2, NULL);
 
   vTaskStartScheduler(); // This function never returns unless RTOS scheduler runs out of memory and fails
 
@@ -374,7 +401,6 @@ void mp3_reader(void *p) {
           // printf("Sending to queue\n");
           xQueueSend(Q_song_data, (void *)mp3_data, portMAX_DELAY);
           // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
-          // xQueueSend(Q_song_data, &mp3_data, portMAX_DELAY);
           if (uxQueueMessagesWaiting(Q_song_name)) {
             break;
           }
@@ -400,26 +426,6 @@ void mp3_player(void *p) {
 
       mp3__send_data_block(mp3_data);
 
-      // ssp2__initialize(8 * 1000);
-      // bytes_send = 0;
-
-      // while (bytes_send < sizeof(mp3_data)) {
-
-      //   while (!data_request())
-      //     ;
-      //   // Enable SDI transfer
-      //   mp3__reset_xdcs();
-      //   // fprintf(stderr, "Start playing\n");
-      //   for (size_t byte = bytes_send; byte < (bytes_send + 32); byte++) {
-      //     ssp2__exchange_byte(mp3_data[byte]);
-      //     // printf("%02x", mp3_data[byte]);
-      //   }
-      //   // printf("Finish one 32 block\n");
-      //   // printf("Bytes send: %d\n", bytes_send);
-      //   bytes_send += 32;
-      //   // vTaskDelay(5);
-      //   mp3__set_xdcs();
-      // }
       printf("Position: %d\n", position);
       position += 512;
     }
