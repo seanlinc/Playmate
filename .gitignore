@@ -3,3 +3,5 @@
 .sconsign.dblite
 _build_*/*
 .vscode/
+sjtwo-c/_build_lpc40xx_freertos/
+sjtwo-c/.sconsign.dblite
