@@ -117,7 +117,6 @@ bool oled__init() {
   oled__send_command(SSD1306_NORMALDISPLAY);       // 0xA6
   oled__send_command(SSD1306_DEACTIVATE_SCROLL);
   oled__send_command(SSD1306_DISPLAYON); // Turn on OLED
-  oled__fillAll();
   oled__set_page_Cursor(100, 0);
   delay__ms(2000);
   // oled__clear_display();
