@@ -80,6 +80,9 @@ bool oled__init() {
   oled__clear_display();
   oled__constructor();
   oled_set_music_list_count(0);
+
+#if 0
+
   // First routine
   oled__send_command(SSD1306_DISPLAYOFF);         // 0xAE
   oled__send_command(SSD1306_SETDISPLAYCLOCKDIV); // 0xD5
@@ -117,6 +120,28 @@ bool oled__init() {
   oled__send_command(SSD1306_NORMALDISPLAY);       // 0xA6
   oled__send_command(SSD1306_DEACTIVATE_SCROLL);
   oled__send_command(SSD1306_DISPLAYON); // Turn on OLED
+
+#endif
+
+  oled__send_command(SSD1306_SETMULTIPLEX);        // 0xA8
+  oled__send_command(OLED_HEIGHT - 1);             // 0x3F
+  oled__send_command(SSD1306_SETDISPLAYOFFSET);    // 0xD3
+  oled__send_command(0x0);                         // No offset
+  oled__send_command(SSD1306_SETSTARTLINE | 0x0);  // start Line 0
+  oled__send_command(SSD1306_SEGREMAP | 0x1);      // Segment remap
+  oled__send_command(SSD1306_COMSCANDEC);          // Scan direction
+  oled__send_command(SSD1306_SETCOMPINS);          // 0xDA
+  oled__send_command(0x02);                        // For 128 x 64 pixels
+  oled__send_command(SSD1306_SETCONTRAST);         // 0x81
+  oled__send_command(0x7F);                        // 0x7F
+  oled__send_command(SSD1306_DISPLAYALLON_RESUME); // 0xA4
+  oled__send_command(SSD1306_NORMALDISPLAY);       // 0xA6
+  oled__send_command(SSD1306_SETDISPLAYCLOCKDIV);  // 0xD5
+  oled__send_command(0x80);                        // Ratio 0x80
+  oled__send_command(SSD1306_CHARGEPUMP);          // 0x8D
+  oled__send_command(0x14);                        // Using internal VCC
+  oled__send_command(SSD1306_DISPLAYON);           // Turn on OLED
+
   oled__set_page_Cursor(100, 0);
   delay__ms(2000);
   // oled__clear_display();
